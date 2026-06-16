@@ -19,6 +19,12 @@ export function sendEvent(res, data) {
 }
 
 export function apiError(res, error) {
+  console.error("[api-error]", {
+    status: error?.status || 500,
+    message: error?.message || "AI 服务暂时不可用",
+    stack: error?.stack,
+  });
+
   const message =
     error?.status === 429
       ? "请求过于频繁，请稍后重试"

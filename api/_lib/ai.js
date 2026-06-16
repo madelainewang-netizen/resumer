@@ -40,6 +40,11 @@ export async function streamStructuredResponse({
     output += chunk.choices?.[0]?.delta?.content || "";
   }
 
+  console.info("[ai-response]", {
+    schemaName,
+    outputLength: output.length,
+  });
+
   let parsed;
   try {
     parsed = JSON.parse(output);

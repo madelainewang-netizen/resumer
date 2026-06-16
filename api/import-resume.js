@@ -21,6 +21,12 @@ export default async function handler(req, res) {
       (total, page) => total + page.lines.reduce((sum, line) => sum + line.text.length, 0),
       0,
     );
+    console.info("[import-resume]", {
+      fileName,
+      pages: pages.length,
+      extractedLength,
+      firstLineLength: pages[0]?.lines?.[0]?.text?.length || 0,
+    });
     if (extractedLength < 50) {
       const error = new Error("PDF 没有可提取的文字。当前版本暂不支持纯扫描图片简历");
       error.status = 400;
@@ -52,6 +58,7 @@ ${JSON.stringify(pages)}
 </pdf_layout>
 请转换为结构化可编辑数据。`,
     });
+    console.info("[import-resume-success]", { fileName });
     res.end();
   } catch (error) {
     apiError(res, error);

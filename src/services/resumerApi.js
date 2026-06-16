@@ -25,6 +25,21 @@ async function streamRequest(endpoint, payload, onProgress) {
   const decoder = new TextDecoder();
   let buffer = "";
   let result = null;
+  const handleEvent = (event) => {
+    const line = event
+      .split("\n")
+      .find((part) => part.startsWith("data: "));
+    if (!line) return;
+    let data;
+    try {
+      data = JSON.parse(line.slice(6));
+    } catch {
+      throw new Error("解析服务返回了异常数据，请刷新页面后重试");
+    }
+    if (data.type === "progress") onProgress?.(data.message);
+    if (data.type === "result") result = data.data;
+    if (data.type === "error") throw new Error(data.message);
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -34,17 +49,13 @@ async function streamRequest(endpoint, payload, onProgress) {
     buffer = events.pop() || "";
 
     for (const event of events) {
-      const line = event
-        .split("\n")
-        .find((part) => part.startsWith("data: "));
-      if (!line) continue;
-      const data = JSON.parse(line.slice(6));
-      if (data.type === "progress") onProgress?.(data.message);
-      if (data.type === "result") result = data.data;
-      if (data.type === "error") throw new Error(data.message);
+      handleEvent(event);
     }
   }
 
+  if (buffer.trim()) {
+    handleEvent(buffer);
+  }
   if (!result) throw new Error("AI 返回内容不完整，请重试");
   return result;
 }
