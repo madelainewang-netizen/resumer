@@ -1,0 +1,26 @@
+import { describe, expect, it } from "vitest";
+import { getResumeLayout } from "./resumeLayout";
+
+describe("resume layout density", () => {
+  it("makes the minimum-readable preset denser than the compact preset", () => {
+    const compact = getResumeLayout(2);
+    const minimum = getResumeLayout(3);
+
+    expect(minimum.bodySize).toBeLessThan(compact.bodySize);
+    expect(minimum.lineHeight).toBeLessThan(compact.lineHeight);
+    expect(minimum.paddingTop).toBeLessThan(compact.paddingTop);
+    expect(minimum.paddingBottom).toBeLessThan(compact.paddingBottom);
+    expect(minimum.sectionGap).toBeLessThan(compact.sectionGap);
+    expect(minimum.entryGap).toBeLessThan(compact.entryGap);
+  });
+
+  it("scales the portrait and reserved header space with each density", () => {
+    const relaxed = getResumeLayout(0);
+    const minimum = getResumeLayout(3);
+
+    expect(minimum.photoWidth).toBeLessThan(relaxed.photoWidth);
+    expect(minimum.photoHeight).toBeLessThan(relaxed.photoHeight);
+    expect(minimum.photoReserve).toBeLessThan(relaxed.photoReserve);
+    expect(minimum.headerMinHeight).toBeLessThan(relaxed.headerMinHeight);
+  });
+});
