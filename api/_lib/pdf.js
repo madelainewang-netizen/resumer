@@ -1,6 +1,9 @@
 import pdfjs from "pdfjs-dist/legacy/build/pdf.js";
+import pdfjsWorker from "pdfjs-dist/legacy/build/pdf.worker.js";
 
 const { getDocument } = pdfjs;
+
+globalThis.pdfjsWorker = pdfjsWorker;
 
 export async function extractPDFLayout(fileData) {
   const base64 = String(fileData).split(",", 2)[1];
