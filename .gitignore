@@ -4,6 +4,7 @@ dist
 .env.local
 .vercel
 .superpowers
+.worktrees
 coverage
 *.log
 .DS_Store
