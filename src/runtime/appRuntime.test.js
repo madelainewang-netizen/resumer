@@ -10,6 +10,14 @@ describe("app runtime parsing", () => {
     });
   });
 
+  it("ignores workspace mode query parameters on the case study page", () => {
+    expect(parseAppRuntime("/case-study", "?demo=1&embed=1")).toEqual({
+      page: "case-study",
+      demoMode: false,
+      embedMode: false,
+    });
+  });
+
   it("enables demo and embed modes from the query string", () => {
     expect(parseAppRuntime("/", "?demo=1&embed=1")).toEqual({
       page: "workspace",
