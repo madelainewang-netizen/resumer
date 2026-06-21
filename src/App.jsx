@@ -8,6 +8,9 @@ import VersionsView from "./components/VersionsView";
 import ProfileOverview from "./components/ProfileOverview";
 import { Toast } from "./components/ui";
 import { createId } from "./data/defaults";
+import { demoProfile, demoSession } from "./data/demoCase";
+import { createDemoServices } from "./services/demoResumerApi";
+import { ResumerServicesProvider } from "./services/ResumerServicesContext";
 import {
   loadProfile,
   loadSession,
@@ -20,9 +23,19 @@ import {
 import { calculateMatchScore } from "./utils/matchScore";
 import { profileSignature } from "./utils/profileSignature";
 
-export default function App() {
-  const initialSession = useMemo(() => loadSession(), []);
-  const [profile, setProfile] = useState(() => loadProfile());
+export default function App({ runtime = {} }) {
+  const { demoMode = false, embedMode = false } = runtime;
+  const services = useMemo(
+    () => (demoMode ? createDemoServices() : {}),
+    [demoMode],
+  );
+  const initialSession = useMemo(
+    () => (demoMode ? structuredClone(demoSession) : loadSession()),
+    [demoMode],
+  );
+  const [profile, setProfile] = useState(() =>
+    demoMode ? structuredClone(demoProfile) : loadProfile(),
+  );
   const [jdText, setJDText] = useState(initialSession.jdText || "");
   const [analysis, setAnalysis] = useState(initialSession.analysis || null);
   const [tailoredProfile, setTailoredProfile] = useState(
@@ -43,8 +56,12 @@ export default function App() {
       : "profile",
   );
   const [activeNav, setActiveNav] = useState("workspace");
-  const [versions, setVersions] = useState(() => loadVersions());
-  const [saveState, setSaveState] = useState("已保存");
+  const [versions, setVersions] = useState(() =>
+    demoMode ? [] : loadVersions(),
+  );
+  const [saveState, setSaveState] = useState(
+    demoMode ? "演示数据不会保存" : "已保存",
+  );
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
   const [toast, setToast] = useState(null);
@@ -60,6 +77,11 @@ export default function App() {
   );
 
   useEffect(() => {
+    if (demoMode) {
+      setSaveState("演示数据不会保存");
+      return undefined;
+    }
+
     setSaveState("正在保存...");
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -85,6 +107,7 @@ export default function App() {
     tailorWorkspaceState,
     matchExplanation,
     activeStep,
+    demoMode,
   ]);
 
   const resetDerivedResume = () => {
@@ -124,6 +147,12 @@ export default function App() {
       jdText,
       analysis,
     };
+    if (demoMode) {
+      setVersions((current) => [version, ...current].slice(0, 20));
+      notify("演示版本仅在本次浏览中保留");
+      return;
+    }
+
     setVersions(saveVersion(version));
     notify("版本已保存", "你可以随时从历史版本中恢复。");
   };
@@ -164,6 +193,7 @@ export default function App() {
         onProfileReplaced={resetDerivedResume}
         onNext={() => navigateStep("jd")}
         notify={notify}
+        demoMode={demoMode}
       />
     );
   } else if (activeStep === "jd") {
@@ -217,20 +247,24 @@ export default function App() {
   }
 
   return (
-    <AppErrorBoundary>
-      <Layout
-        activeStep={activeStep}
-        onStepChange={navigateStep}
-        activeNav={activeNav}
-        onNavChange={navigateNav}
-        profile={profile}
-        saveState={saveState}
-        score={score.overallScore}
-      >
-        {content}
-      </Layout>
-      <Toast toast={toast} onClose={() => setToast(null)} />
-    </AppErrorBoundary>
+    <ResumerServicesProvider services={services}>
+      <AppErrorBoundary>
+        <Layout
+          activeStep={activeStep}
+          onStepChange={navigateStep}
+          activeNav={activeNav}
+          onNavChange={navigateNav}
+          profile={profile}
+          saveState={saveState}
+          score={score.overallScore}
+          embedMode={embedMode}
+          demoMode={demoMode}
+        >
+          {content}
+        </Layout>
+        <Toast toast={toast} onClose={() => setToast(null)} />
+      </AppErrorBoundary>
+    </ResumerServicesProvider>
   );
 }
 

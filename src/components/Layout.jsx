@@ -23,13 +23,23 @@ export default function Layout({
   profile,
   saveState,
   score,
+  embedMode = false,
+  demoMode = false,
   children,
 }) {
   const activeIndex = steps.findIndex((step) => step.id === activeStep);
 
   return (
-    <div className="app-shell min-h-screen bg-[#f7f7f5]">
-      <aside className="fixed inset-y-0 left-0 z-20 flex w-[224px] flex-col border-r border-[#e4e4e0] bg-[#f7f7f5] px-3 py-4">
+    <div
+      className={`app-shell min-h-screen bg-[#f7f7f5] ${
+        embedMode ? "embedded-workspace" : ""
+      }`}
+    >
+      <aside
+        className={`fixed inset-y-0 left-0 z-20 flex flex-col border-r border-[#e4e4e0] bg-[#f7f7f5] px-3 py-4 ${
+          embedMode ? "w-[176px]" : "w-[224px]"
+        }`}
+      >
         <div className="flex h-10 items-center gap-2 px-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white">
             <Sparkles size={14} strokeWidth={2} />
@@ -37,24 +47,26 @@ export default function Layout({
           <span className="text-[15px] font-semibold tracking-[-0.02em]">Resumer</span>
         </div>
 
-        <nav className="mt-7 space-y-1">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => onNavChange(id)}
-              className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition ${
-                activeNav === id
-                  ? "bg-[#e9e9e6] font-semibold text-neutral-900"
-                  : "text-neutral-600 hover:bg-[#ededeb] hover:text-neutral-900"
-              }`}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
-        </nav>
+        {!embedMode ? (
+          <nav className="mt-7 space-y-1">
+            {navItems.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => onNavChange(id)}
+                className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition ${
+                  activeNav === id
+                    ? "bg-[#e9e9e6] font-semibold text-neutral-900"
+                    : "text-neutral-600 hover:bg-[#ededeb] hover:text-neutral-900"
+                }`}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
 
-        <div className="mt-7 px-2.5">
+        <div className={`${embedMode ? "mt-8" : "mt-7"} px-2.5`}>
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
             当前定制
           </p>
@@ -90,29 +102,47 @@ export default function Layout({
           </div>
         </div>
 
-        <div className="mt-auto">
-          <button className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-neutral-500 hover:bg-[#ededeb] hover:text-neutral-900">
-            <Settings size={15} />
-            设置
-          </button>
-          <button className="mt-2 flex w-full items-center gap-2 rounded-xl border border-neutral-200 bg-white p-2 text-left">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 text-xs font-semibold">
-              {profile.basics.name?.slice(0, 1) || "R"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-neutral-800">
-                {profile.basics.name || "未命名简历"}
+        {embedMode ? (
+          <div className="mt-auto px-2">
+            {demoMode ? (
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">
+                演示模式
               </p>
-              <p className="truncate text-[10px] text-neutral-400">
-                {profile.basics.targetRole || "添加目标岗位"}
-              </p>
-            </div>
-            <ChevronDown size={13} className="text-neutral-400" />
-          </button>
-        </div>
+            ) : null}
+            <a
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+            >
+              使用自己的简历
+            </a>
+          </div>
+        ) : (
+          <div className="mt-auto">
+            <button className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-neutral-500 hover:bg-[#ededeb] hover:text-neutral-900">
+              <Settings size={15} />
+              设置
+            </button>
+            <button className="mt-2 flex w-full items-center gap-2 rounded-xl border border-neutral-200 bg-white p-2 text-left">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 text-xs font-semibold">
+                {profile.basics.name?.slice(0, 1) || "R"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-neutral-800">
+                  {profile.basics.name || "未命名简历"}
+                </p>
+                <p className="truncate text-[10px] text-neutral-400">
+                  {profile.basics.targetRole || "添加目标岗位"}
+                </p>
+              </div>
+              <ChevronDown size={13} className="text-neutral-400" />
+            </button>
+          </div>
+        )}
       </aside>
 
-      <div className="ml-[224px] min-h-screen">
+      <div className={`${embedMode ? "ml-[176px]" : "ml-[224px]"} min-h-screen`}>
         <header className="sticky top-0 z-10 flex h-[62px] items-center justify-between border-b border-[#e4e4e0] bg-white/90 px-7 backdrop-blur-xl">
           <div className="flex items-center gap-2 text-xs text-neutral-500">
             <span>定制工作台</span>

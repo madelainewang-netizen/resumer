@@ -110,6 +110,7 @@ export default function ProfileForm({
   onProfileReplaced,
   onNext,
   notify,
+  demoMode = false,
 }) {
   const [entryMode, setEntryMode] = useState(profile.source?.mode || "manual");
 
@@ -195,7 +196,7 @@ export default function ProfileForm({
   );
 
   return (
-    <div className={`mx-auto px-8 py-9 ${entryMode === "upload" ? "max-w-[1240px]" : "max-w-[950px]"}`}>
+    <div className={`mx-auto px-8 py-9 ${!demoMode && entryMode === "upload" ? "max-w-[1240px]" : "max-w-[950px]"}`}>
       <SectionHeader
         eyebrow="Step 01"
         title="建立你的简历档案"
@@ -215,47 +216,53 @@ export default function ProfileForm({
         }
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 rounded-xl border border-neutral-200 bg-white p-2">
-        <button
-          className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${
-            entryMode === "upload" ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
-          }`}
-          onClick={() => setEntryMode("upload")}
-        >
-          <FileUp size={17} />
-          <div>
-            <p className="text-xs font-semibold">上传已有简历</p>
-            <p className={`mt-1 text-[10px] ${entryMode === "upload" ? "text-neutral-300" : "text-neutral-400"}`}>
-              解析 PDF，保留内容顺序与模板特征
-            </p>
-          </div>
-        </button>
-        <button
-          className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${
-            entryMode === "manual" ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
-          }`}
-          onClick={() => {
-            setEntryMode("manual");
-            setProfile((current) => ({
-              ...current,
-              source: { ...current.source, mode: "manual" },
-              sectionOrder: current.source?.mode === "upload"
-                ? current.sectionOrder
-                : ["education", "experience", "projects", "customSections", "skills"],
-            }));
-          }}
-        >
-          <PenLine size={17} />
-          <div>
-            <p className="text-xs font-semibold">手动填写资料</p>
-            <p className={`mt-1 text-[10px] ${entryMode === "manual" ? "text-neutral-300" : "text-neutral-400"}`}>
-              从空白档案开始，教育经历默认置顶
-            </p>
-          </div>
-        </button>
-      </div>
+      {demoMode ? (
+        <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-800">
+          当前为脱敏示例数据。你可以自由编辑体验，刷新页面后会重置。
+        </div>
+      ) : (
+        <div className="mb-5 grid grid-cols-2 gap-3 rounded-xl border border-neutral-200 bg-white p-2">
+          <button
+            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${
+              entryMode === "upload" ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
+            }`}
+            onClick={() => setEntryMode("upload")}
+          >
+            <FileUp size={17} />
+            <div>
+              <p className="text-xs font-semibold">上传已有简历</p>
+              <p className={`mt-1 text-[10px] ${entryMode === "upload" ? "text-neutral-300" : "text-neutral-400"}`}>
+                解析 PDF，保留内容顺序与模板特征
+              </p>
+            </div>
+          </button>
+          <button
+            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${
+              entryMode === "manual" ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
+            }`}
+            onClick={() => {
+              setEntryMode("manual");
+              setProfile((current) => ({
+                ...current,
+                source: { ...current.source, mode: "manual" },
+                sectionOrder: current.source?.mode === "upload"
+                  ? current.sectionOrder
+                  : ["education", "experience", "projects", "customSections", "skills"],
+              }));
+            }}
+          >
+            <PenLine size={17} />
+            <div>
+              <p className="text-xs font-semibold">手动填写资料</p>
+              <p className={`mt-1 text-[10px] ${entryMode === "manual" ? "text-neutral-300" : "text-neutral-400"}`}>
+                从空白档案开始，教育经历默认置顶
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
 
-      {entryMode === "upload" ? (
+      {!demoMode && entryMode === "upload" ? (
         <ResumeImport
           notify={notify}
           onImported={(imported) => {
