@@ -6,6 +6,10 @@
   },
   "rewrites": [
     {
+      "source": "/case-study",
+      "destination": "/index.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     }
