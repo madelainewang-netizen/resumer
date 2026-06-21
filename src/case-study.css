@@ -36,7 +36,7 @@
 }
 
 .case-study-page :focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.32);
+  outline: 3px solid rgba(107, 114, 128, 0.8);
   outline-offset: 3px;
 }
 
@@ -97,9 +97,12 @@
 }
 
 .case-study-page .case-nav nav a:hover,
-.case-study-page .case-text-link:hover,
+.case-study-page .case-text-link:hover {
+  color: var(--case-ink);
+}
+
 .case-study-page .case-footer a:hover {
-  color: var(--case-blue);
+  color: var(--case-paper);
 }
 
 .case-study-page .case-hero {
@@ -184,8 +187,8 @@
 }
 
 .case-study-page .case-button-primary:hover {
-  border-color: var(--case-blue);
-  background: var(--case-blue);
+  border-color: #303030;
+  background: #303030;
 }
 
 .case-study-page .case-text-link {

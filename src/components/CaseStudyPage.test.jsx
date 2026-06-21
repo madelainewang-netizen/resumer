@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import CaseStudyPage from "./CaseStudyPage";
 
@@ -48,5 +49,17 @@ describe("CaseStudyPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "收起体验" }));
     expect(frame).not.toHaveClass("is-expanded");
+  });
+
+  it("reserves evidence blue for the product workflow", () => {
+    const css = readFileSync("src/case-study.css", "utf8");
+    const genericInteractionCss = css.slice(
+      0,
+      css.indexOf(".case-study-page .workflow-miniature"),
+    );
+
+    expect(genericInteractionCss).not.toMatch(
+      /var\(--case-blue\)|rgba\(37,\s*99,\s*235/i,
+    );
   });
 });
