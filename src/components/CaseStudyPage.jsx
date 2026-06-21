@@ -330,16 +330,21 @@ function Decisions() {
 
 function ProductDemo() {
   const [expanded, setExpanded] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [frameStatus, setFrameStatus] = useState("loading");
   const frameRef = useRef(null);
 
   useEffect(() => {
+    if (frameStatus !== "loading") return undefined;
     const frame = frameRef.current;
     if (!frame) return undefined;
-    const handleError = () => setFailed(true);
+    const handleError = () => setFrameStatus("failed");
+    const watchdog = window.setTimeout(handleError, 8_000);
     frame.addEventListener("error", handleError);
-    return () => frame.removeEventListener("error", handleError);
-  }, []);
+    return () => {
+      window.clearTimeout(watchdog);
+      frame.removeEventListener("error", handleError);
+    };
+  }, [frameStatus]);
 
   return (
     <section className="case-section case-demo-section" id="demo">
@@ -373,19 +378,27 @@ function ProductDemo() {
             <span /><span /><span />
             <p>resumer / demo workspace</p>
           </div>
-          {failed ? (
+          {frameStatus === "failed" ? (
             <div className="demo-fallback" role="status">
               <p className="case-card-label">EMBED UNAVAILABLE</p>
               <h3>演示工作台没有在当前页面加载。</h3>
               <p>你仍然可以在独立窗口中体验同一份脱敏案例。</p>
-              <a className="case-button case-button-primary" href="/?demo=1">打开完整产品</a>
+              <a
+                className="case-button case-button-primary"
+                href="/?demo=1"
+                target="_blank"
+                rel="noreferrer"
+              >
+                打开完整产品
+              </a>
             </div>
           ) : (
             <iframe
               ref={frameRef}
               title="Resumer 应届生演示工作台"
               src="/?demo=1&embed=1"
-              loading="lazy"
+              onLoad={() => setFrameStatus("loaded")}
+              onError={() => setFrameStatus("failed")}
             />
           )}
         </div>

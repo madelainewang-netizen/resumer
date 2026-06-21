@@ -706,7 +706,7 @@
 }
 
 .case-study-page .product-demo-frame.is-expanded iframe {
-  height: min(90vh, 980px);
+  height: clamp(760px, 90vh, 980px);
 }
 
 .case-study-page .demo-fallback {
