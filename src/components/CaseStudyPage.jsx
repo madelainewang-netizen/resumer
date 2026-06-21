@@ -330,21 +330,53 @@ function Decisions() {
 
 function ProductDemo() {
   const [expanded, setExpanded] = useState(false);
-  const [frameStatus, setFrameStatus] = useState("loading");
+  const [frameStatus, setFrameStatus] = useState("waiting");
   const frameRef = useRef(null);
+  const watchdogRef = useRef(null);
+  const readyRef = useRef(false);
+
+  const clearWatchdog = () => {
+    window.clearTimeout(watchdogRef.current);
+    watchdogRef.current = null;
+  };
+
+  const failFrame = () => {
+    clearWatchdog();
+    setFrameStatus("failed");
+  };
+
+  const handleFrameLoad = () => {
+    if (readyRef.current) return;
+    clearWatchdog();
+    watchdogRef.current = window.setTimeout(failFrame, 8_000);
+  };
 
   useEffect(() => {
-    if (frameStatus !== "loading") return undefined;
     const frame = frameRef.current;
     if (!frame) return undefined;
-    const handleError = () => setFrameStatus("failed");
-    const watchdog = window.setTimeout(handleError, 8_000);
-    frame.addEventListener("error", handleError);
-    return () => {
-      window.clearTimeout(watchdog);
-      frame.removeEventListener("error", handleError);
+
+    const handleReady = (event) => {
+      if (
+        event.origin !== window.location.origin ||
+        event.source !== frameRef.current?.contentWindow ||
+        event.data?.type !== "resumer-demo-ready"
+      ) {
+        return;
+      }
+
+      readyRef.current = true;
+      clearWatchdog();
+      setFrameStatus("loaded");
     };
-  }, [frameStatus]);
+
+    frame.addEventListener("error", failFrame);
+    window.addEventListener("message", handleReady);
+    return () => {
+      clearWatchdog();
+      frame.removeEventListener("error", failFrame);
+      window.removeEventListener("message", handleReady);
+    };
+  }, []);
 
   return (
     <section className="case-section case-demo-section" id="demo">
@@ -397,8 +429,9 @@ function ProductDemo() {
               ref={frameRef}
               title="Resumer 应届生演示工作台"
               src="/?demo=1&embed=1"
-              onLoad={() => setFrameStatus("loaded")}
-              onError={() => setFrameStatus("failed")}
+              loading="lazy"
+              onLoad={handleFrameLoad}
+              onError={failFrame}
             />
           )}
         </div>

@@ -77,6 +77,15 @@ export default function App({ runtime = {} }) {
   );
 
   useEffect(() => {
+    if (embedMode && window.parent !== window) {
+      window.parent.postMessage(
+        { type: "resumer-demo-ready" },
+        window.location.origin,
+      );
+    }
+  }, [embedMode]);
+
+  useEffect(() => {
     if (demoMode) {
       setSaveState("演示数据不会保存");
       return undefined;

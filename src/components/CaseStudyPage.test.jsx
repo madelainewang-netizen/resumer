@@ -1,7 +1,21 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import App from "../App";
 import CaseStudyPage from "./CaseStudyPage";
+
+const READY_MESSAGE = { type: "resumer-demo-ready" };
+
+function dispatchReadyMessage(frame, overrides = {}) {
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      data: READY_MESSAGE,
+      origin: window.location.origin,
+      source: frame.contentWindow,
+      ...overrides,
+    }),
+  );
+}
 
 describe("CaseStudyPage", () => {
   afterEach(() => {
@@ -19,6 +33,10 @@ describe("CaseStudyPage", () => {
     expect(screen.getByTitle("Resumer 应届生演示工作台")).toHaveAttribute(
       "src",
       "/?demo=1&embed=1",
+    );
+    expect(screen.getByTitle("Resumer 应届生演示工作台")).toHaveAttribute(
+      "loading",
+      "lazy",
     );
     expect(screen.getByRole("link", { name: "查看 GitHub" })).toHaveAttribute(
       "href",
@@ -45,10 +63,12 @@ describe("CaseStudyPage", () => {
     );
   });
 
-  it("offers the fallback when the iframe does not load within eight seconds", async () => {
+  it("offers the fallback when a loaded iframe does not report ready within eight seconds", async () => {
     vi.useFakeTimers();
     render(<CaseStudyPage />);
 
+    const frame = screen.getByTitle("Resumer 应届生演示工作台");
+    fireEvent.load(frame);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000);
     });
@@ -56,17 +76,49 @@ describe("CaseStudyPage", () => {
     expect(screen.getByRole("link", { name: "打开完整产品" })).toBeInTheDocument();
   });
 
-  it("clears the watchdog after the iframe loads", async () => {
+  it("keeps the iframe available after a valid readiness message", async () => {
     vi.useFakeTimers();
     render(<CaseStudyPage />);
 
-    fireEvent.load(screen.getByTitle("Resumer 应届生演示工作台"));
+    const frame = screen.getByTitle("Resumer 应届生演示工作台");
+    fireEvent.load(frame);
+    dispatchReadyMessage(frame);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000);
     });
 
     expect(screen.getByTitle("Resumer 应届生演示工作台")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "打开完整产品" })).not.toBeInTheDocument();
+  });
+
+  it("does not arm the watchdog when readiness arrives before iframe load", async () => {
+    vi.useFakeTimers();
+    render(<CaseStudyPage />);
+
+    const frame = screen.getByTitle("Resumer 应届生演示工作台");
+    dispatchReadyMessage(frame);
+    fireEvent.load(frame);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(screen.queryByRole("link", { name: "打开完整产品" })).not.toBeInTheDocument();
+  });
+
+  it("ignores readiness messages with the wrong origin, source, or type", async () => {
+    vi.useFakeTimers();
+    render(<CaseStudyPage />);
+
+    const frame = screen.getByTitle("Resumer 应届生演示工作台");
+    fireEvent.load(frame);
+    dispatchReadyMessage(frame, { origin: "https://example.com" });
+    dispatchReadyMessage(frame, { source: window });
+    dispatchReadyMessage(frame, { data: { type: "another-message" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(screen.getByRole("link", { name: "打开完整产品" })).toBeInTheDocument();
   });
 
   it("expands and collapses the embedded product workspace", () => {
@@ -116,5 +168,25 @@ describe("CaseStudyPage", () => {
     ];
 
     expect(new Set(blueSelectors)).toEqual(new Set(evidenceSelectors));
+  });
+});
+
+describe("embedded App readiness", () => {
+  it("notifies its parent after the embedded app mounts", () => {
+    const parentDescriptor = Object.getOwnPropertyDescriptor(window, "parent");
+    const parent = { postMessage: vi.fn() };
+    Object.defineProperty(window, "parent", { configurable: true, value: parent });
+
+    try {
+      render(<App runtime={{ demoMode: true, embedMode: true }} />);
+
+      expect(parent.postMessage).toHaveBeenCalledWith(
+        READY_MESSAGE,
+        window.location.origin,
+      );
+    } finally {
+      cleanup();
+      Object.defineProperty(window, "parent", parentDescriptor);
+    }
   });
 });
