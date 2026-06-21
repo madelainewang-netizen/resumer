@@ -21,6 +21,8 @@ describe("CaseStudyPage", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("presents the personal product story and interactive demo", () => {
@@ -76,6 +78,31 @@ describe("CaseStudyPage", () => {
     expect(screen.getByRole("link", { name: "打开完整产品" })).toBeInTheDocument();
   });
 
+  it("times out after the lazy demo approaches the viewport even without iframe load", async () => {
+    vi.useFakeTimers();
+    let observerCallback;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    const IntersectionObserverMock = vi.fn(function IntersectionObserver(callback) {
+      observerCallback = callback;
+      this.observe = observe;
+      this.disconnect = disconnect;
+    });
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    render(<CaseStudyPage />);
+
+    expect(observe).toHaveBeenCalledWith(
+      screen.getByTitle("Resumer 应届生演示工作台"),
+    );
+    observerCallback([{ isIntersecting: true, intersectionRatio: 1 }]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(screen.getByRole("link", { name: "打开完整产品" })).toBeInTheDocument();
+    expect(disconnect).toHaveBeenCalled();
+  });
+
   it("keeps the iframe available after a valid readiness message", async () => {
     vi.useFakeTimers();
     render(<CaseStudyPage />);
@@ -116,6 +143,17 @@ describe("CaseStudyPage", () => {
     dispatchReadyMessage(frame, { data: { type: "another-message" } });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(screen.getByRole("link", { name: "打开完整产品" })).toBeInTheDocument();
+  });
+
+  it("fails immediately after a valid embedded error message", () => {
+    render(<CaseStudyPage />);
+
+    const frame = screen.getByTitle("Resumer 应届生演示工作台");
+    act(() => {
+      dispatchReadyMessage(frame, { data: { type: "resumer-demo-error" } });
     });
 
     expect(screen.getByRole("link", { name: "打开完整产品" })).toBeInTheDocument();
@@ -188,5 +226,27 @@ describe("embedded App readiness", () => {
       cleanup();
       Object.defineProperty(window, "parent", parentDescriptor);
     }
+  });
+
+  it("reports errors caught while committing the embedded workspace tree", async () => {
+    const { AppErrorBoundary } = await import("../App");
+    expect(AppErrorBoundary).toBeTypeOf("function");
+    const onError = vi.fn();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    function BrokenWorkspace() {
+      throw new Error("embedded workspace failed");
+    }
+
+    render(
+      <AppErrorBoundary onError={onError}>
+        <BrokenWorkspace />
+      </AppErrorBoundary>,
+    );
+
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "embedded workspace failed" }),
+      expect.any(Object),
+    );
   });
 });

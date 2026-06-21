@@ -23,6 +23,19 @@ import {
 import { calculateMatchScore } from "./utils/matchScore";
 import { profileSignature } from "./utils/profileSignature";
 
+function postEmbeddedSignal(type, embedMode) {
+  if (embedMode && window.parent !== window) {
+    window.parent.postMessage({ type }, window.location.origin);
+  }
+}
+
+function EmbeddedReadySignal({ embedMode }) {
+  useEffect(() => {
+    postEmbeddedSignal("resumer-demo-ready", embedMode);
+  }, [embedMode]);
+  return null;
+}
+
 export default function App({ runtime = {} }) {
   const { demoMode = false, embedMode = false } = runtime;
   const services = useMemo(
@@ -75,15 +88,6 @@ export default function App({ runtime = {} }) {
     () => calculateMatchScore(finalProfile, analysis),
     [finalProfile, analysis],
   );
-
-  useEffect(() => {
-    if (embedMode && window.parent !== window) {
-      window.parent.postMessage(
-        { type: "resumer-demo-ready" },
-        window.location.origin,
-      );
-    }
-  }, [embedMode]);
 
   useEffect(() => {
     if (demoMode) {
@@ -257,7 +261,10 @@ export default function App({ runtime = {} }) {
 
   return (
     <ResumerServicesProvider services={services}>
-      <AppErrorBoundary>
+      <AppErrorBoundary
+        onError={() => postEmbeddedSignal("resumer-demo-error", embedMode)}
+      >
+        <EmbeddedReadySignal embedMode={embedMode} />
         <Layout
           activeStep={activeStep}
           onStepChange={navigateStep}
@@ -277,7 +284,7 @@ export default function App({ runtime = {} }) {
   );
 }
 
-class AppErrorBoundary extends Component {
+export class AppErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { error: null };
@@ -285,6 +292,10 @@ class AppErrorBoundary extends Component {
 
   static getDerivedStateFromError(error) {
     return { error };
+  }
+
+  componentDidCatch(error, info) {
+    this.props.onError?.(error, info);
   }
 
   render() {

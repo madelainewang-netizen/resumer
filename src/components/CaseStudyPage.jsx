@@ -333,6 +333,7 @@ function ProductDemo() {
   const [frameStatus, setFrameStatus] = useState("waiting");
   const frameRef = useRef(null);
   const watchdogRef = useRef(null);
+  const observerRef = useRef(null);
   const readyRef = useRef(false);
 
   const clearWatchdog = () => {
@@ -340,41 +341,69 @@ function ProductDemo() {
     watchdogRef.current = null;
   };
 
+  const disconnectObserver = () => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+  };
+
+  const armWatchdog = () => {
+    if (readyRef.current || watchdogRef.current !== null) return;
+    watchdogRef.current = window.setTimeout(failFrame, 8_000);
+  };
+
   const failFrame = () => {
     clearWatchdog();
+    disconnectObserver();
     setFrameStatus("failed");
   };
 
   const handleFrameLoad = () => {
-    if (readyRef.current) return;
-    clearWatchdog();
-    watchdogRef.current = window.setTimeout(failFrame, 8_000);
+    armWatchdog();
   };
 
   useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return undefined;
 
-    const handleReady = (event) => {
+    const handleStatus = (event) => {
       if (
         event.origin !== window.location.origin ||
-        event.source !== frameRef.current?.contentWindow ||
-        event.data?.type !== "resumer-demo-ready"
+        event.source !== frameRef.current?.contentWindow
       ) {
         return;
       }
 
+      if (event.data?.type === "resumer-demo-error") {
+        failFrame();
+        return;
+      }
+      if (event.data?.type !== "resumer-demo-ready") return;
+
       readyRef.current = true;
       clearWatchdog();
+      disconnectObserver();
       setFrameStatus("loaded");
     };
 
+    if ("IntersectionObserver" in window) {
+      observerRef.current = new window.IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+            armWatchdog();
+          }
+        },
+        { root: null, rootMargin: "600px 0px", threshold: 0 },
+      );
+      observerRef.current.observe(frame);
+    }
+
     frame.addEventListener("error", failFrame);
-    window.addEventListener("message", handleReady);
+    window.addEventListener("message", handleStatus);
     return () => {
       clearWatchdog();
+      disconnectObserver();
       frame.removeEventListener("error", failFrame);
-      window.removeEventListener("message", handleReady);
+      window.removeEventListener("message", handleStatus);
     };
   }, []);
 
