@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { explainMatch } from "../services/resumerApi";
+import { useResumerServices } from "../services/ResumerServicesContext";
 import { calculateMatchScore } from "../utils/matchScore";
 import ResumePaper from "./ResumePaper";
 import { SectionHeader, StatusPill } from "./ui";
@@ -22,6 +22,7 @@ export default function ReviewExport({
   onSaveVersion,
   notify,
 }) {
+  const { explainMatch } = useResumerServices();
   const paperRef = useRef(null);
   const [compactLevel, setCompactLevel] = useState(2);
   const [isOverflowing, setIsOverflowing] = useState(false);

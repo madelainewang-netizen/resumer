@@ -10,7 +10,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { sampleJD } from "../data/defaults";
-import { analyzeJD } from "../services/resumerApi";
+import { useResumerServices } from "../services/ResumerServicesContext";
 import { addEvidenceToProfile } from "../utils/evidence";
 import { evaluateRequirementEvidence } from "../utils/matchScore";
 import EvidenceCoach from "./EvidenceCoach";
@@ -31,6 +31,7 @@ export default function JDAnalysis({
   setProgress,
   notify,
 }) {
+  const { analyzeJD } = useResumerServices();
   const [coachTarget, setCoachTarget] = useState(null);
 
   const runAnalysis = async () => {

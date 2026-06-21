@@ -11,7 +11,7 @@ import {
   Undo2,
   WandSparkles,
 } from "lucide-react";
-import { condenseResume, tailorResume } from "../services/resumerApi";
+import { useResumerServices } from "../services/ResumerServicesContext";
 import {
   applyCondenseRecommendation,
   indexCondenseRecommendations,
@@ -49,6 +49,7 @@ export default function TailorWorkspace({
   setProgress,
   notify,
 }) {
+  const { condenseResume, tailorResume } = useResumerServices();
   const accepted = workspaceState.accepted || {};
   const condensePlan = workspaceState.condensePlan || null;
   const condenseApplied = workspaceState.condenseApplied || {};

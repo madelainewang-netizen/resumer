@@ -7,9 +7,10 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { importResumePDF } from "../services/resumerApi";
+import { useResumerServices } from "../services/ResumerServicesContext";
 
 export default function ResumeImport({ onImported, notify }) {
+  const { importResumePDF } = useResumerServices();
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [previewURL, setPreviewURL] = useState("");

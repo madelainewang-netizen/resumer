@@ -10,10 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import {
-  createEvidenceDraft,
-  getEvidenceQuestions,
-} from "../services/resumerApi";
+import { useResumerServices } from "../services/ResumerServicesContext";
 
 const destinationLabels = {
   experience: "工作 / 实习经历",
@@ -31,6 +28,7 @@ export default function EvidenceCoach({
   onAddEvidence,
   notify,
 }) {
+  const { createEvidenceDraft, getEvidenceQuestions } = useResumerServices();
   const [stage, setStage] = useState("questions");
   const [questionSet, setQuestionSet] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -70,7 +68,7 @@ export default function EvidenceCoach({
     return () => {
       active = false;
     };
-  }, [open, requirement, evidenceHint, analysis, profile]);
+  }, [open, requirement, evidenceHint, analysis, profile, getEvidenceQuestions]);
 
   const requiredComplete = useMemo(
     () =>
