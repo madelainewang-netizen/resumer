@@ -167,7 +167,7 @@ function WorkflowMiniature() {
             <span className="mini-verified"><Check size={11} /> 已确认事实</span>
           </div>
           <p>
-            整理 <strong>60+ 条用户反馈</strong>，按场景归纳为 5 类问题清单，支持产品团队确定内测优化优先级。
+            整理用户反馈与内容数据，按场景归纳问题清单，支持产品团队讨论内测优化优先级。
           </p>
         </article>
       </div>

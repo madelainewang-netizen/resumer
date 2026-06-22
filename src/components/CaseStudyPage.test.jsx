@@ -46,6 +46,16 @@ describe("CaseStudyPage", () => {
     );
   });
 
+  it("describes the demo evidence without fabricated metrics", () => {
+    render(<CaseStudyPage />);
+
+    expect(
+      screen.getByText(
+        "整理用户反馈与内容数据，按场景归纳问题清单，支持产品团队讨论内测优化优先级。",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("offers a direct product link when the iframe reports an error", () => {
     render(<CaseStudyPage />);
 
