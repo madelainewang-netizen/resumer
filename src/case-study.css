@@ -125,6 +125,11 @@
   font-weight: 750;
 }
 
+.case-study-page .case-hero h1,
+.case-study-page .case-section-intro h2 {
+  text-wrap: pretty;
+}
+
 .case-study-page .case-hero h1 {
   max-width: 590px;
   margin: 0;
@@ -385,7 +390,7 @@
 }
 
 .case-study-page .case-section-intro {
-  max-width: 780px;
+  max-width: 1040px;
 }
 
 .case-study-page .case-section-intro h2 {

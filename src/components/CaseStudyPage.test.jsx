@@ -194,6 +194,18 @@ describe("CaseStudyPage", () => {
     );
   });
 
+  it("gives large Chinese headings room to wrap without orphan lines", () => {
+    const css = readFileSync("src/case-study.css", "utf8");
+
+    expect(css).toMatch(
+      /\.case-study-page \.case-section-intro\s*\{[^}]*max-width:\s*1040px/s,
+    );
+    expect(css).toMatch(
+      /\.case-study-page \.case-hero h1,\s*\.case-study-page \.case-section-intro h2\s*\{[^}]*text-wrap:\s*pretty/s,
+    );
+    expect(css).not.toMatch(/white-space:\s*nowrap/);
+  });
+
   it("reserves blue for explicitly evidence-semantic selectors", () => {
     const css = readFileSync("src/case-study.css", "utf8");
     const cssWithoutTokenDefinition = css.replace("--case-blue: #2563eb;", "");
