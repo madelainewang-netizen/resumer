@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { selectRootView } from "./main";
+import App from "../App";
+import CaseStudyPage from "../components/CaseStudyPage";
+import { selectRootView } from "./rootView";
 
 describe("selectRootView", () => {
   it("selects the case study view", () => {
-    expect(selectRootView({ page: "case-study" }).type.name).toBe(
-      "CaseStudyPage",
-    );
+    const view = selectRootView({ page: "case-study" });
+
+    expect(view.type).toBe(CaseStudyPage);
   });
 
-  it("passes demo and embed modes to the workspace", () => {
+  it("passes exact runtime flags to the workspace", () => {
     const view = selectRootView({
       page: "workspace",
       demoMode: true,
       embedMode: true,
     });
 
+    expect(view.type).toBe(App);
     expect(view.props.runtime).toEqual({
       demoMode: true,
       embedMode: true,
