@@ -44,6 +44,13 @@ DEEPSEEK_MODEL=deepseek-chat
 
 API key 只在服务端读取，不会进入浏览器构建产物。
 
+## 产品案例页
+
+- 工作台：http://localhost:5173/
+- AI 产品案例：http://localhost:5173/case-study
+- 脱敏演示工作台：http://localhost:5173/?demo=1&embed=1
+- 脱敏演示状态使用内置的虚构数据，不会读取或写入本地简历，也不会调用 AI API。
+
 ## 验证
 
 ```bash
