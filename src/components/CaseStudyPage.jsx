@@ -180,9 +180,9 @@ function Hero() {
     <section className="case-hero case-container" id="top">
       <div className="case-hero-copy">
         <p className="case-eyebrow">CASE STUDY · RESUMER</p>
-        <h1>一个文科生的 AI 产品实验</h1>
+        <h1>一次求职中的 AI 产品实验</h1>
         <p className="case-hero-hook">
-          为了找一份 AI 产品工作，我先做了一个帮自己找工作的 AI 产品。
+          我把“根据每个 JD 针对性修改简历”这件反复发生的小麻烦，做成了一个可以跑起来的产品。
         </p>
         <p className="case-hero-summary">
           我独立完成了问题定义、产品设计、AI 工作流，以及从开发到部署的完整落地。它不是一份概念稿，而是我拿自己的真实简历跑通过的产品实验。

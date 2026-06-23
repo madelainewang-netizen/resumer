@@ -29,9 +29,9 @@ describe("CaseStudyPage", () => {
     render(<CaseStudyPage />);
 
     expect(
-      screen.getByRole("heading", { name: "一个文科生的 AI 产品实验" }),
+      screen.getByRole("heading", { name: "一次求职中的 AI 产品实验" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/为了找一份 AI 产品工作/)).toBeInTheDocument();
+    expect(screen.getByText(/根据每个 JD 针对性修改简历/)).toBeInTheDocument();
     expect(screen.getByTitle("Resumer 应届生演示工作台")).toHaveAttribute(
       "src",
       "/?demo=1&embed=1",
@@ -201,9 +201,14 @@ describe("CaseStudyPage", () => {
       /\.case-study-page \.case-section-intro\s*\{[^}]*max-width:\s*1040px/s,
     );
     expect(css).toMatch(
-      /\.case-study-page \.case-hero h1,\s*\.case-study-page \.case-section-intro h2\s*\{[^}]*text-wrap:\s*pretty/s,
+      /\.case-study-page \.case-hero h1,\s*\.case-study-page \.case-section-intro h2\s*\{[^}]*text-wrap:\s*balance/s,
     );
-    expect(css).not.toMatch(/white-space:\s*nowrap/);
+    expect(css).toMatch(
+      /\.case-study-page \.reflection-grid h3\s*\{[^}]*white-space:\s*nowrap/s,
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*\.case-study-page \.reflection-grid h3\s*\{[^}]*white-space:\s*normal/s,
+    );
   });
 
   it("reserves blue for explicitly evidence-semantic selectors", () => {
