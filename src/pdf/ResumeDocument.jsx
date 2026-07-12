@@ -208,7 +208,7 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
 
   return (
     <Document title={`${profile.basics.name || "Resumer"} - 简历`}>
-      <Page size="A4" style={[styles.page, density.page]} wrap={false}>
+      <Page size="A4" style={[styles.page, density.page]}>
         <View
           style={[
             styles.header,

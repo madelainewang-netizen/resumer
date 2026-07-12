@@ -159,7 +159,7 @@ const ResumePaper = forwardRef(function ResumePaper(
   return (
     <div
       ref={ref}
-      className={`relative aspect-[210/297] w-full overflow-hidden bg-white text-[#202020] shadow-[0_3px_18px_rgba(0,0,0,0.08)] ${className}`}
+      className={`relative aspect-[210/297] w-full overflow-visible bg-white text-[#202020] shadow-[0_3px_18px_rgba(0,0,0,0.08)] ${className}`}
       style={{
         paddingTop,
         paddingBottom,

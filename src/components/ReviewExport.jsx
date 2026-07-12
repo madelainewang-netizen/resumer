@@ -49,14 +49,10 @@ export default function ReviewExport({
   const warnings = [
     ...score.missingKeywords.slice(0, 3).map((keyword) => `缺少“${keyword}”相关证据`),
     ...(profile.basics.summary.length > 150 ? ["职业摘要较长，建议压缩到 2–3 行"] : []),
-    ...(likelyOverflow ? ["内容可能超过一页，请优先精简低相关经历"] : []),
+    ...(likelyOverflow ? ["内容可能超过一页，导出时会按 A4 自动分页；如需单页请继续精简"] : []),
   ];
 
   const exportPDF = async () => {
-    if (likelyOverflow) {
-      notify("暂时无法导出", "内容超过单页安全容量，请先精简后再试。", "error");
-      return;
-    }
     setExporting(true);
     try {
       const [{ pdf }, { default: ResumeDocument }] = await Promise.all([
@@ -72,7 +68,7 @@ export default function ReviewExport({
       anchor.download = `${profile.basics.name || "Resumer"}-${profile.basics.targetRole || "Resume"}.pdf`;
       anchor.click();
       URL.revokeObjectURL(url);
-      notify("PDF 已生成", "已按单页 A4 模板下载到本地。");
+      notify("PDF 已生成", "内容会按 A4 自动分页，并保持每页边距一致。");
     } catch (error) {
       notify("PDF 生成失败", error.message, "error");
     } finally {
@@ -129,8 +125,8 @@ export default function ReviewExport({
               <MetricCard
                 icon={Save}
                 label="页面长度"
-                value={likelyOverflow ? "超页" : "1 / 1"}
-                tone={likelyOverflow ? "danger" : "good"}
+                value={likelyOverflow ? "多页" : "1页内"}
+                tone={likelyOverflow ? "warn" : "good"}
               />
             </div>
 
@@ -182,7 +178,7 @@ export default function ReviewExport({
                 </div>
               ) : (
                 <p className="text-xs text-neutral-500">
-                  内容结构、页面长度和关键词覆盖均达到当前导出标准。
+                  内容结构、页面长度和关键词覆盖均达到当前检查标准。
                 </p>
               )}
             </section>
@@ -233,7 +229,7 @@ export default function ReviewExport({
               <div>
                 <h2 className="text-xs font-semibold">最终 A4 预览</h2>
                 <p className="mt-0.5 text-[10px] text-neutral-400">
-                  {likelyOverflow ? "检测到超页风险" : "单页安全容量内"}
+                  {likelyOverflow ? "导出将自动分页" : "单页安全容量内"}
                 </p>
               </div>
               <select
@@ -252,7 +248,7 @@ export default function ReviewExport({
               <button
                 className="primary-button"
                 onClick={exportPDF}
-                disabled={exporting || likelyOverflow}
+                disabled={exporting}
               >
                 {exporting ? <Sparkles size={14} className="animate-pulse" /> : <Download size={14} />}
                 {exporting ? "正在生成 PDF" : "下载 PDF"}
@@ -263,8 +259,8 @@ export default function ReviewExport({
               </button>
             </div>
             {likelyOverflow ? (
-              <p className="mt-2 text-center text-[10px] text-red-600">
-                已达到最低可读配置，请精简内容后导出
+              <p className="mt-2 text-center text-[10px] text-amber-600">
+                内容可能超过一页，可继续精简，也可以直接导出多页 PDF
               </p>
             ) : null}
           </aside>
