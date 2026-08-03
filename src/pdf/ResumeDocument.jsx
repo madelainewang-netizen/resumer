@@ -2,7 +2,7 @@ import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/
 import { splitBulletSummary } from "../utils/bulletSummary";
 import { hasVisibleEntryContent } from "../utils/resumeVisibility";
 import { getResumeLayout } from "../utils/resumeLayout";
-import { hyphenateResumeWord } from "./textWrapping";
+import { hyphenateResumeWord, wrapResumeText } from "./textWrapping";
 
 Font.registerHyphenationCallback(hyphenateResumeWord);
 Font.register({
@@ -10,6 +10,7 @@ Font.register({
   fonts: [
     { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 400 },
     { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 500 },
+    { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 600 },
     { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 700 },
   ],
 });
@@ -21,17 +22,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     fontFamily: "Noto Sans SC",
     fontSize: 8.6,
-    fontWeight: 500,
+    fontWeight: 600,
     lineHeight: 1.4,
-    color: "#171717",
+    color: "#000000",
   },
   header: {
     position: "relative",
     paddingBottom: 2,
   },
   name: { fontSize: 19, fontWeight: 700, lineHeight: 1.1 },
-  role: { marginTop: 3, fontSize: 9.5, fontWeight: 700, color: "#2f2f2f" },
-  contact: { marginTop: 3, color: "#3f3f3f" },
+  role: { marginTop: 3, fontSize: 9.5, fontWeight: 700, color: "#000000" },
+  contact: { marginTop: 3, color: "#000000" },
   photo: {
     position: "absolute",
     right: 0,
@@ -52,20 +53,20 @@ const styles = StyleSheet.create({
   entry: { marginBottom: 4 },
   entryHeader: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   entryTitle: { fontWeight: 700, flexGrow: 1, flexShrink: 1 },
-  meta: { color: "#3f3f3f", flexShrink: 0 },
-  secondary: { marginTop: 1, color: "#2f2f2f" },
+  meta: { color: "#000000", flexShrink: 0 },
+  secondary: { marginTop: 1, color: "#000000" },
   bulletRow: { flexDirection: "row", marginTop: 2, paddingLeft: 4 },
-  bullet: { width: 8, color: "#171717" },
-  bulletText: { flex: 1, color: "#202020" },
+  bullet: { width: 8, color: "#000000" },
+  bulletText: { flex: 1, flexShrink: 1, color: "#000000" },
 });
 
 export default function ResumeDocument({ profile, compactLevel = 0 }) {
   const layout = getResumeLayout(compactLevel);
   const density = {
     page: {
-      paddingTop: layout.paddingTop,
-      paddingBottom: layout.paddingBottom,
-      paddingHorizontal: layout.paddingHorizontal,
+      paddingTop: Math.max(layout.paddingTop, 28),
+      paddingBottom: Math.max(layout.paddingBottom, 28),
+      paddingHorizontal: Math.max(layout.paddingHorizontal, 42),
       fontSize: layout.bodySize,
       lineHeight: layout.lineHeight,
     },
@@ -173,7 +174,7 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
     if (sectionKey === "skills" && visibleSkills.length) {
       return (
         <PDFSection key="skills" title="Skills" density={density}>
-          <Text>{visibleSkills.join("  ·  ")}</Text>
+          <Text>{wrapResumeText(visibleSkills.join("  ·  "))}</Text>
         </PDFSection>
       );
     }
@@ -219,17 +220,19 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
             profile.basics.photo ? density.headerWithPhoto : null,
           ]}
         >
-          <Text style={[styles.name, density.name]}>{profile.basics.name || "你的姓名"}</Text>
-          <Text style={[styles.role, density.role]}>{profile.basics.targetRole || "目标岗位"}</Text>
+          <Text style={[styles.name, density.name]}>{wrapResumeText(profile.basics.name || "你的姓名")}</Text>
+          <Text style={[styles.role, density.role]}>{wrapResumeText(profile.basics.targetRole || "目标岗位")}</Text>
           <Text style={[styles.contact, density.contact]}>
-            {[
-              profile.basics.email,
-              profile.basics.phone,
-              profile.basics.extraContact,
-              profile.basics.links,
-            ]
-              .filter(Boolean)
-              .join("  ·  ")}
+            {wrapResumeText(
+              [
+                profile.basics.email,
+                profile.basics.phone,
+                profile.basics.extraContact,
+                profile.basics.links,
+              ]
+                .filter(Boolean)
+                .join("  ·  "),
+            )}
           </Text>
           {profile.basics.photo ? (
             <Image src={profile.basics.photo} style={[styles.photo, density.photo]} />
@@ -238,7 +241,7 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
 
         {profile.basics.summary ? (
           <PDFSection title="Professional Summary" density={density}>
-            <Text>{profile.basics.summary}</Text>
+            <Text>{wrapResumeText(profile.basics.summary)}</Text>
           </PDFSection>
         ) : null}
 
@@ -252,7 +255,7 @@ function PDFSection({ title, children, density }) {
   return (
     <View style={[styles.section, density?.section]}>
       {title ? (
-        <Text style={[styles.sectionTitle, density?.sectionTitle]}>{title}</Text>
+        <Text style={[styles.sectionTitle, density?.sectionTitle]}>{wrapResumeText(title)}</Text>
       ) : null}
       {children}
     </View>
@@ -273,20 +276,20 @@ function PDFEntry({ title, meta, secondary, bullets, density }) {
   return (
     <View style={[styles.entry, density?.entry]}>
       <View style={styles.entryHeader}>
-        <Text style={styles.entryTitle}>{title}</Text>
-        <Text style={styles.meta}>{meta}</Text>
+        <Text style={styles.entryTitle}>{wrapResumeText(title)}</Text>
+        <Text style={styles.meta}>{wrapResumeText(meta)}</Text>
       </View>
-      {secondary ? <Text style={styles.secondary}>{secondary}</Text> : null}
+      {secondary ? <Text style={styles.secondary}>{wrapResumeText(secondary)}</Text> : null}
       {bullets
         .filter((bullet) => bullet.text)
         .map((bullet) => {
           const { summary, body } = splitBulletSummary(bullet.text);
           return (
-            <View key={bullet.id} style={[styles.bulletRow, density?.bulletRow]}>
+            <View key={bullet.id} style={[styles.bulletRow, density?.bulletRow]} wrap={false}>
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.bulletText}>
-                {summary ? <Text style={{ fontWeight: 700 }}>{summary}</Text> : null}
-                {summary ? body : bullet.text}
+                {summary ? <Text style={{ fontWeight: 700 }}>{wrapResumeText(summary)}</Text> : null}
+                {wrapResumeText(summary ? body : bullet.text)}
               </Text>
             </View>
           );
