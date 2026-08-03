@@ -29,6 +29,7 @@ import {
   restoreSummary,
 } from "../utils/condenseResume";
 import { profileSignature } from "../utils/profileSignature";
+import { normalizeCompactLevel } from "../utils/resumeLayout";
 import { updateTailoredBullet } from "../utils/tailorProfile";
 import ResumePaper from "./ResumePaper";
 import { LoadingButton, SectionHeader, StatusPill } from "./ui";
@@ -59,7 +60,7 @@ export default function TailorWorkspace({
   const removedSkills = workspaceState.removedSkills || {};
   const removedCustomItems = workspaceState.removedCustomItems || {};
   const removedCustomSections = workspaceState.removedCustomSections || {};
-  const compactLevel = workspaceState.compactLevel || 0;
+  const compactLevel = normalizeCompactLevel(workspaceState.compactLevel, 0);
   const [condenseLoading, setCondenseLoading] = useState(false);
   const [condenseProgress, setCondenseProgress] = useState("");
   const setWorkspaceSlice = (key, fallback, value) =>
@@ -86,7 +87,9 @@ export default function TailorWorkspace({
   const setRemovedCustomSections = (value) =>
     setWorkspaceSlice("removedCustomSections", {}, value);
   const setCompactLevel = (value) =>
-    setWorkspaceSlice("compactLevel", 0, value);
+    setWorkspaceSlice("compactLevel", 0, (current) =>
+      normalizeCompactLevel(typeof value === "function" ? value(current) : value, 0),
+    );
   const currentProfileSignature = profileSignature(profile);
   const isTailoredCurrent =
     Boolean(tailoredProfile) &&

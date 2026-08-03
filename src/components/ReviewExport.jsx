@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useResumerServices } from "../services/ResumerServicesContext";
 import { calculateMatchScore } from "../utils/matchScore";
+import { normalizeCompactLevel } from "../utils/resumeLayout";
 import ResumePaper from "./ResumePaper";
 import { SectionHeader, StatusPill } from "./ui";
 
@@ -27,8 +28,19 @@ export default function ReviewExport({
   const { explainMatch } = useResumerServices();
   const paperRef = useRef(null);
   const [localCompactLevel, setLocalCompactLevel] = useState(2);
-  const compactLevel = controlledCompactLevel ?? localCompactLevel;
-  const setCompactLevel = setControlledCompactLevel ?? setLocalCompactLevel;
+  const compactLevel = normalizeCompactLevel(
+    controlledCompactLevel ?? localCompactLevel,
+    2,
+  );
+  const setCompactLevel = (value) => {
+    const setter = setControlledCompactLevel ?? setLocalCompactLevel;
+    setter((current) =>
+      normalizeCompactLevel(
+        typeof value === "function" ? value(current) : value,
+        2,
+      ),
+    );
+  };
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);

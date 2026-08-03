@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getResumeLayout } from "./resumeLayout";
+import { getResumeLayout, normalizeCompactLevel } from "./resumeLayout";
 
 describe("resume layout density", () => {
   it("makes the minimum-readable preset denser than the compact preset", () => {
@@ -22,5 +22,12 @@ describe("resume layout density", () => {
     expect(minimum.photoHeight).toBeLessThan(relaxed.photoHeight);
     expect(minimum.photoReserve).toBeLessThan(relaxed.photoReserve);
     expect(minimum.headerMinHeight).toBeLessThan(relaxed.headerMinHeight);
+  });
+
+  it("normalizes stored density values without falling back to minimum readable", () => {
+    expect(normalizeCompactLevel("0", 2)).toBe(0);
+    expect(normalizeCompactLevel("3", 2)).toBe(3);
+    expect(normalizeCompactLevel("stale", 2)).toBe(2);
+    expect(getResumeLayout("stale")).toEqual(getResumeLayout(0));
   });
 });

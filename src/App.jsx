@@ -22,6 +22,7 @@ import {
 } from "./storage/resumerStorage";
 import { calculateMatchScore } from "./utils/matchScore";
 import { profileSignature } from "./utils/profileSignature";
+import { normalizeCompactLevel } from "./utils/resumeLayout";
 
 function postEmbeddedSignal(type, embedMode) {
   if (embedMode && window.parent !== window) {
@@ -254,14 +255,14 @@ export default function App({ runtime = {} }) {
         matchExplanation={matchExplanation}
         setMatchExplanation={setMatchExplanation}
         onSaveVersion={handleSaveVersion}
-        compactLevel={tailorWorkspaceState.compactLevel ?? 2}
+        compactLevel={normalizeCompactLevel(tailorWorkspaceState.compactLevel, 2)}
         setCompactLevel={(value) =>
           setTailorWorkspaceState((current) => ({
             ...current,
             compactLevel:
               typeof value === "function"
-                ? value(current.compactLevel ?? 2)
-                : value,
+                ? normalizeCompactLevel(value(current.compactLevel), 2)
+                : normalizeCompactLevel(value, 2),
           }))
         }
         notify={notify}

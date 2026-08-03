@@ -21,6 +21,6 @@ describe("ReviewExport multi-page export", () => {
     const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
 
     expect(source).toContain("controlledCompactLevel ?? localCompactLevel");
-    expect(source).toContain("setControlledCompactLevel ?? setLocalCompactLevel");
+    expect(source).toContain("normalizeCompactLevel");
   });
 });

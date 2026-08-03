@@ -57,6 +57,14 @@ const layouts = [
   },
 ];
 
+export function normalizeCompactLevel(level, fallback = 0) {
+  const parsed = Number(level);
+  if (Number.isInteger(parsed) && parsed >= 0 && parsed < layouts.length) {
+    return parsed;
+  }
+  return fallback;
+}
+
 export function getResumeLayout(level = 0) {
-  return layouts[level] || layouts[3];
+  return layouts[normalizeCompactLevel(level)];
 }
