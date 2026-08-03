@@ -9,4 +9,18 @@ describe("ReviewExport multi-page export", () => {
     expect(source).not.toMatch(/disabled=\{exporting\s*\|\|\s*likelyOverflow\}/);
     expect(source).toContain("内容会按 A4 自动分页");
   });
+
+  it("does not override the user's selected preview density", () => {
+    const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
+
+    expect(source).not.toMatch(/setCompactLevel\(\(level\)/);
+    expect(source).toContain("setIsOverflowing(overflows)");
+  });
+
+  it("can use a shared preview density from the workspace", () => {
+    const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
+
+    expect(source).toContain("controlledCompactLevel ?? localCompactLevel");
+    expect(source).toContain("setControlledCompactLevel ?? setLocalCompactLevel");
+  });
 });

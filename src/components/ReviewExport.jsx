@@ -20,11 +20,15 @@ export default function ReviewExport({
   matchExplanation,
   setMatchExplanation,
   onSaveVersion,
+  compactLevel: controlledCompactLevel,
+  setCompactLevel: setControlledCompactLevel,
   notify,
 }) {
   const { explainMatch } = useResumerServices();
   const paperRef = useRef(null);
-  const [compactLevel, setCompactLevel] = useState(2);
+  const [localCompactLevel, setLocalCompactLevel] = useState(2);
+  const compactLevel = controlledCompactLevel ?? localCompactLevel;
+  const setCompactLevel = setControlledCompactLevel ?? setLocalCompactLevel;
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -37,12 +41,7 @@ export default function ReviewExport({
       const paper = paperRef.current;
       if (!paper) return;
       const overflows = paper.scrollHeight > paper.clientHeight + 2;
-      if (overflows && compactLevel < 3) {
-        setCompactLevel((level) => Math.min(3, level + 1));
-        setIsOverflowing(false);
-      } else {
-        setIsOverflowing(overflows);
-      }
+      setIsOverflowing(overflows);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [profile, compactLevel]);

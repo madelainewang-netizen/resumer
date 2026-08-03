@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     fontFamily: "Noto Sans SC",
     fontSize: 8.6,
-    fontWeight: 600,
+    fontWeight: 700,
     lineHeight: 1.4,
     color: "#000000",
   },
@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 19, fontWeight: 700, lineHeight: 1.1 },
   role: { marginTop: 3, fontSize: 9.5, fontWeight: 700, color: "#000000" },
-  contact: { marginTop: 3, color: "#000000" },
+  contact: { marginTop: 3, color: "#000000", fontWeight: 700 },
   photo: {
     position: "absolute",
     right: 0,
@@ -51,13 +51,31 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   entry: { marginBottom: 4 },
-  entryHeader: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  entryTitle: { fontWeight: 700, flexGrow: 1, flexShrink: 1 },
-  meta: { color: "#000000", flexShrink: 0 },
-  secondary: { marginTop: 1, color: "#000000" },
-  bulletRow: { flexDirection: "row", marginTop: 2, paddingLeft: 4 },
-  bullet: { width: 8, color: "#000000" },
-  bulletText: { flex: 1, flexShrink: 1, color: "#000000" },
+  entryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    columnGap: 12,
+    width: "100%",
+  },
+  entryTitle: { fontWeight: 700, flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  meta: {
+    color: "#000000",
+    flexShrink: 0,
+    maxWidth: 172,
+    textAlign: "right",
+    fontWeight: 700,
+  },
+  secondary: { marginTop: 1, color: "#000000", fontWeight: 700 },
+  bulletRow: { flexDirection: "row", marginTop: 2, paddingLeft: 4, width: "100%" },
+  bullet: { width: 8, color: "#000000", fontWeight: 700 },
+  bulletText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    maxWidth: "100%",
+    color: "#000000",
+    fontWeight: 700,
+  },
 });
 
 export default function ResumeDocument({ profile, compactLevel = 0 }) {
@@ -66,7 +84,7 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
     page: {
       paddingTop: Math.max(layout.paddingTop, 28),
       paddingBottom: Math.max(layout.paddingBottom, 28),
-      paddingHorizontal: Math.max(layout.paddingHorizontal, 42),
+      paddingHorizontal: Math.max(layout.paddingHorizontal, 48),
       fontSize: layout.bodySize,
       lineHeight: layout.lineHeight,
     },
@@ -220,8 +238,8 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
             profile.basics.photo ? density.headerWithPhoto : null,
           ]}
         >
-          <Text style={[styles.name, density.name]}>{wrapResumeText(profile.basics.name || "你的姓名")}</Text>
-          <Text style={[styles.role, density.role]}>{wrapResumeText(profile.basics.targetRole || "目标岗位")}</Text>
+          <Text style={[styles.name, density.name]}>{wrapResumeText(profile.basics.name || "你的姓名", { maxUnits: 32 })}</Text>
+          <Text style={[styles.role, density.role]}>{wrapResumeText(profile.basics.targetRole || "目标岗位", { maxUnits: 42 })}</Text>
           <Text style={[styles.contact, density.contact]}>
             {wrapResumeText(
               [
@@ -232,6 +250,7 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
               ]
                 .filter(Boolean)
                 .join("  ·  "),
+              { maxUnits: 54 },
             )}
           </Text>
           {profile.basics.photo ? (
@@ -241,7 +260,7 @@ export default function ResumeDocument({ profile, compactLevel = 0 }) {
 
         {profile.basics.summary ? (
           <PDFSection title="Professional Summary" density={density}>
-            <Text>{wrapResumeText(profile.basics.summary)}</Text>
+            <Text>{wrapResumeText(profile.basics.summary, { maxUnits: 48 })}</Text>
           </PDFSection>
         ) : null}
 
@@ -255,7 +274,7 @@ function PDFSection({ title, children, density }) {
   return (
     <View style={[styles.section, density?.section]}>
       {title ? (
-        <Text style={[styles.sectionTitle, density?.sectionTitle]}>{wrapResumeText(title)}</Text>
+        <Text style={[styles.sectionTitle, density?.sectionTitle]}>{wrapResumeText(title, { maxUnits: 42 })}</Text>
       ) : null}
       {children}
     </View>
@@ -276,10 +295,10 @@ function PDFEntry({ title, meta, secondary, bullets, density }) {
   return (
     <View style={[styles.entry, density?.entry]}>
       <View style={styles.entryHeader}>
-        <Text style={styles.entryTitle}>{wrapResumeText(title)}</Text>
-        <Text style={styles.meta}>{wrapResumeText(meta)}</Text>
+        <Text style={styles.entryTitle}>{wrapResumeText(title, { maxUnits: 34 })}</Text>
+        <Text style={styles.meta}>{wrapResumeText(meta, { maxUnits: 24 })}</Text>
       </View>
-      {secondary ? <Text style={styles.secondary}>{wrapResumeText(secondary)}</Text> : null}
+      {secondary ? <Text style={styles.secondary}>{wrapResumeText(secondary, { maxUnits: 48 })}</Text> : null}
       {bullets
         .filter((bullet) => bullet.text)
         .map((bullet) => {
@@ -288,8 +307,8 @@ function PDFEntry({ title, meta, secondary, bullets, density }) {
             <View key={bullet.id} style={[styles.bulletRow, density?.bulletRow]} wrap={false}>
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.bulletText}>
-                {summary ? <Text style={{ fontWeight: 700 }}>{wrapResumeText(summary)}</Text> : null}
-                {wrapResumeText(summary ? body : bullet.text)}
+                {summary ? <Text style={{ fontWeight: 700 }}>{wrapResumeText(summary, { maxUnits: 42 })}</Text> : null}
+                {wrapResumeText(summary ? body : bullet.text, { maxUnits: 42 })}
               </Text>
             </View>
           );

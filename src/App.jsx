@@ -254,6 +254,16 @@ export default function App({ runtime = {} }) {
         matchExplanation={matchExplanation}
         setMatchExplanation={setMatchExplanation}
         onSaveVersion={handleSaveVersion}
+        compactLevel={tailorWorkspaceState.compactLevel ?? 2}
+        setCompactLevel={(value) =>
+          setTailorWorkspaceState((current) => ({
+            ...current,
+            compactLevel:
+              typeof value === "function"
+                ? value(current.compactLevel ?? 2)
+                : value,
+          }))
+        }
         notify={notify}
       />
     );

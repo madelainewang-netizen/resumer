@@ -13,7 +13,7 @@ describe("ResumeDocument pagination", () => {
     const source = readFileSync("src/pdf/ResumeDocument.jsx", "utf8");
 
     expect(source).toContain('color: "#000000"');
-    expect(source).toContain("fontWeight: 600");
+    expect(source).toContain("fontWeight: 700");
     expect(source).not.toContain('color: "#666666"');
   });
 
@@ -22,7 +22,15 @@ describe("ResumeDocument pagination", () => {
 
     expect(source).toContain("paddingTop: Math.max(layout.paddingTop, 28)");
     expect(source).toContain("paddingBottom: Math.max(layout.paddingBottom, 28)");
-    expect(source).toContain("paddingHorizontal: Math.max(layout.paddingHorizontal, 42)");
+    expect(source).toContain("paddingHorizontal: Math.max(layout.paddingHorizontal, 48)");
+  });
+
+  it("keeps entry metadata from pushing body text past the page margin", () => {
+    const source = readFileSync("src/pdf/ResumeDocument.jsx", "utf8");
+
+    expect(source).toContain("maxWidth: 172");
+    expect(source).toContain("flexBasis: 0");
+    expect(source).toContain("{ maxUnits: 42 }");
   });
 
   it("keeps bullet markers attached to their text across page breaks", () => {
