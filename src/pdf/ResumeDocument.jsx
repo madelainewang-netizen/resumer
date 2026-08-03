@@ -2,12 +2,14 @@ import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/
 import { splitBulletSummary } from "../utils/bulletSummary";
 import { hasVisibleEntryContent } from "../utils/resumeVisibility";
 import { getResumeLayout } from "../utils/resumeLayout";
+import { hyphenateResumeWord } from "./textWrapping";
 
-Font.registerHyphenationCallback((word) => [word]);
+Font.registerHyphenationCallback(hyphenateResumeWord);
 Font.register({
   family: "Noto Sans SC",
   fonts: [
     { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 400 },
+    { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 500 },
     { src: "/fonts/NotoSansSC-VF.ttf", fontWeight: 700 },
   ],
 });
@@ -19,16 +21,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     fontFamily: "Noto Sans SC",
     fontSize: 8.6,
+    fontWeight: 500,
     lineHeight: 1.4,
-    color: "#202020",
+    color: "#171717",
   },
   header: {
     position: "relative",
     paddingBottom: 2,
   },
   name: { fontSize: 19, fontWeight: 700, lineHeight: 1.1 },
-  role: { marginTop: 3, fontSize: 9.5, fontWeight: 700, color: "#444444" },
-  contact: { marginTop: 3, color: "#666666" },
+  role: { marginTop: 3, fontSize: 9.5, fontWeight: 700, color: "#2f2f2f" },
+  contact: { marginTop: 3, color: "#3f3f3f" },
   photo: {
     position: "absolute",
     right: 0,
@@ -48,12 +51,12 @@ const styles = StyleSheet.create({
   },
   entry: { marginBottom: 4 },
   entryHeader: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  entryTitle: { fontWeight: 700, flexGrow: 1 },
-  meta: { color: "#666666" },
-  secondary: { marginTop: 1, color: "#555555" },
+  entryTitle: { fontWeight: 700, flexGrow: 1, flexShrink: 1 },
+  meta: { color: "#3f3f3f", flexShrink: 0 },
+  secondary: { marginTop: 1, color: "#2f2f2f" },
   bulletRow: { flexDirection: "row", marginTop: 2, paddingLeft: 4 },
-  bullet: { width: 8 },
-  bulletText: { flex: 1, color: "#404040" },
+  bullet: { width: 8, color: "#171717" },
+  bulletText: { flex: 1, color: "#202020" },
 });
 
 export default function ResumeDocument({ profile, compactLevel = 0 }) {
