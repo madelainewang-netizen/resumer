@@ -235,3 +235,7 @@ button:disabled {
 .resume-paper p {
   margin: 0;
 }
+/* 浏览器自带的"避免最后一行太短"排版（Chrome 117+、Safari 26+） */
+.resume-paper p {
+  text-wrap: pretty;
+}

@@ -4,7 +4,8 @@
  */
 
 const VISIBLE = /[^\s•·|｜]/g;
-const ORPHAN_MAX_CHARS = 3;
+// 最后一行不超过 4 个字（含标点）就算孤行，例如"等工作。"
+const ORPHAN_MAX_CHARS = 4;
 
 /** 把 pdf.js textContent.items 合并成行（同一 y 视为一行，可能包含左右两栏）。 */
 export function groupLines(items, pageHeight) {
@@ -80,6 +81,13 @@ export function listTextBlocks(model) {
       continue;
     }
     for (const entry of section.entries) {
+      if (entry.title || entry.subtitle) {
+        blocks.push({
+          key: `${entry.id}:head`,
+          text: [entry.title, entry.subtitle].filter(Boolean).join(entry.separator || " | "),
+          label: entry.title || section.title,
+        });
+      }
       if (entry.secondary) {
         blocks.push({ key: `${entry.id}:secondary`, text: entry.secondary, label: entry.title || section.title });
       }

@@ -1,3 +1,4 @@
+import { cleanResumeText } from "../utils/cleanText";
 import { splitBulletSummary } from "../utils/bulletSummary";
 import { hasVisibleEntryContent } from "../utils/resumeVisibility";
 
@@ -38,7 +39,8 @@ const CONTACT_LABELS = {
 const CJK = /[㐀-鿿]/g;
 const LATIN = /[A-Za-z]/g;
 
-const clean = (value) => String(value ?? "").trim();
+// 显示和导出前统一清理多余空格，旧数据里导入时带进来的空格也会被去掉
+const clean = (value) => cleanResumeText(String(value ?? ""));
 const joinParts = (parts, separator) => parts.map(clean).filter(Boolean).join(separator);
 
 /** 根据正文里的中英文字符比例判断简历语言。 */
@@ -69,8 +71,9 @@ function toBullets(bullets = []) {
   return bullets
     .filter((bullet) => clean(bullet?.text))
     .map((bullet) => {
-      const { summary, body } = splitBulletSummary(bullet.text);
-      return { id: bullet.id, lead: summary, text: summary ? body : clean(bullet.text) };
+      const text = clean(bullet.text);
+      const { summary, body } = splitBulletSummary(text);
+      return { id: bullet.id, lead: summary, text: summary ? body : text };
     });
 }
 

@@ -27,6 +27,7 @@ export async function extractPDFLayout(fileData) {
           x: item.transform[4],
           y: item.transform[5],
           size: Math.abs(item.transform[3]) || item.height || 10,
+          width: item.width || 0,
         })),
     );
     pages.push({
@@ -75,6 +76,12 @@ function joinItems(items) {
   return text.trim();
 }
 
+// 优先用 pdf.js 给出的真实宽度。旧的估算按每字 0.55 个字号算，
+// 中文字其实约 1 个字号宽，会把中文之间的正常间隙误判成空格。
 function estimateWidth(item) {
-  return item.text.length * item.size * 0.55;
+  if (item.width) return item.width;
+  return Array.from(item.text).reduce(
+    (sum, char) => sum + item.size * (/[\u3000-\u9fff\uff00-\uffef]/.test(char) ? 1 : 0.55),
+    0,
+  );
 }

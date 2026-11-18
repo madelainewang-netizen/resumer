@@ -127,7 +127,7 @@ export default function ResumeDocument({ profile, compactLevel = 2, spacing = {}
                   {entry.title || entry.subtitle || entry.meta ? (
                   <View style={base.entryHeader} wrap={false} minPresenceAhead={layout.bodySize * 2}>
                     <View style={base.entryTitleWrap}>
-                      <Text>
+                      <Text style={squeeze(`${entry.id}:head`)}>
                         {entry.title ? <Text style={base.bold}>{entry.title}</Text> : null}
                         {entry.title && entry.subtitle ? entry.separator || " | " : null}
                         {entry.subtitle || null}

@@ -1,10 +1,11 @@
+import { cleanResumeText } from "./cleanText";
 import { createId } from "../data/defaults";
 
 const VALID_TYPES = new Set(["experience", "project", "custom"]);
 const EVIDENCE_SECTION_ID = "evidence_additions";
 
 function clean(value) {
-  return String(value || "").trim();
+  return cleanResumeText(String(value || ""));
 }
 
 function createBullets(items) {

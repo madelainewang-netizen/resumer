@@ -1,3 +1,5 @@
+import { cleanResumeText } from "../../src/utils/cleanText.js";
+
 /**
  * 简历改写只让模型返回「需要改的文字」，公司、日期、id 等事实字段永远不经过模型，
  * 由服务端合并回原档案。好处：
@@ -52,14 +54,14 @@ export function buildTailorInput(profile) {
       heading: [item.company, item.role, [item.startDate, item.endDate].filter(Boolean).join("–")]
         .filter(Boolean)
         .join(" | "),
-      bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: b.text })),
+      bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: cleanResumeText(b.text) })),
     });
   }
   for (const item of profile.projects || []) {
     groups.push({
       type: "项目",
       heading: [item.name, item.role, item.stack].filter(Boolean).join(" | "),
-      bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: b.text })),
+      bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: cleanResumeText(b.text) })),
     });
   }
   for (const section of profile.customSections || []) {
@@ -67,7 +69,7 @@ export function buildTailorInput(profile) {
       groups.push({
         type: section.title || "其他",
         heading: [item.title, item.subtitle].filter(Boolean).join(" | "),
-        bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: b.text })),
+        bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: cleanResumeText(b.text) })),
       });
     }
   }
@@ -99,7 +101,7 @@ export function mergeTailorRewrite(profile, rewrite) {
   const mapBullets = (bullets = []) =>
     bullets.map((bullet) => {
       const next = byId.get(bullet.id);
-      const proposed = next ? next.text.trim() : bullet.text;
+      const proposed = next ? cleanResumeText(next.text) : bullet.text;
       // 模型说保留、或者只动了空格标点：一律视为未修改，原文原样保留
       const unchanged = !next || next.action === "keep" || isSameWording(bullet.text, proposed);
       const text = unchanged ? bullet.text : proposed;
@@ -129,7 +131,7 @@ export function mergeTailorRewrite(profile, rewrite) {
     tailorGaps: gaps,
     basics: {
       ...profile.basics,
-      summary: String(rewrite?.summary || "").trim() || profile.basics?.summary || "",
+      summary: cleanResumeText(String(rewrite?.summary || "")) || profile.basics?.summary || "",
     },
     experience: (profile.experience || []).map((item) => ({ ...item, bullets: mapBullets(item.bullets) })),
     projects: (profile.projects || []).map((item) => ({ ...item, bullets: mapBullets(item.bullets) })),

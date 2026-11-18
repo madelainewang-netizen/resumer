@@ -3,8 +3,8 @@ import { buildResumeModel } from "../resume/resumeModel";
 import { A4, AUTO_LEVEL, getResumeLayout, LAYOUT_COUNT, STANDARD_LEVEL } from "../utils/resumeLayout";
 import { findOrphans, groupLines, listTextBlocks, matchOrphansToBlocks, remainingLines } from "./pdfAnalysis";
 
-// 孤行处理依次尝试：轻微收紧 → 再收紧 → 略微放宽（把更多字带到最后一行）
-const ORPHAN_SPACING_STEPS = [0, -0.25, -0.5, 0.35];
+// 孤行处理依次尝试：轻微收紧 → 再收紧 → 略微放宽 → 再放宽（放宽会把更多字带到最后一行）
+const ORPHAN_SPACING_STEPS = [0, -0.2, -0.4, -0.6, 0.3, 0.6];
 
 let pdfjsPromise;
 export function loadPdfjs() {
@@ -59,10 +59,11 @@ async function inspect(blob, level, pdfjs) {
  * 1. 自动档：从宽松到紧凑依次尝试，选出能放进一页的最宽松档位（内容少时不会下面空一大块，内容多时自动收紧）；
  * 2. 孤行：检测到段落最后一行只剩一两个字时，把该段字距收紧 0.25pt 重新排版，最多两轮。
  */
-export async function fitResumePdf(profile, requestedLevel) {
-  const pdfjs = await loadPdfjs();
+export async function fitResumePdf(profile, requestedLevel, deps = {}) {
+  const pdfjs = deps.pdfjs || (await loadPdfjs());
+  const render = deps.renderBlob || renderBlob;
   const attempt = async (level, spacing = {}) => {
-    const blob = await renderBlob(profile, level, spacing);
+    const blob = await render(profile, level, spacing);
     return { level, spacing, blob, ...(await inspect(blob, level, pdfjs)) };
   };
 

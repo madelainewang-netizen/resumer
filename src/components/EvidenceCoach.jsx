@@ -70,11 +70,9 @@ export default function EvidenceCoach({
     };
   }, [open, requirement, evidenceHint, analysis, profile, getEvidenceQuestions]);
 
+  // 所有问题都是选答：至少回答一题即可生成草稿，有什么写什么
   const requiredComplete = useMemo(
-    () =>
-      questionSet?.questions
-        ?.filter((item) => item.required)
-        .every((item) => answers[item.id]?.trim()) ?? false,
+    () => questionSet?.questions?.some((item) => answers[item.id]?.trim()) ?? false,
     [answers, questionSet],
   );
 
@@ -82,7 +80,7 @@ export default function EvidenceCoach({
 
   const generateDraft = async () => {
     if (!requiredComplete) {
-      setError("请先回答标记为必填的问题。没有相关经历也可以直接保留这个能力缺口。");
+      setError("至少回答一个问题，AI 才有素材可写。没有相关经历的话，可以直接保留这个缺口。");
       return;
     }
     setLoading(true);
@@ -242,12 +240,14 @@ function QuestionsStage({ questionSet, answers, setAnswers }) {
         ) : null}
       </div>
 
-      <div className="mt-5 space-y-5">
+      <p className="mt-5 text-[11px] leading-5 text-neutral-500">
+        所有问题都可以跳过，挑你记得的回答就行，一两句话也可以。写得越具体，生成的经历越像你。
+      </p>
+      <div className="mt-3 space-y-5">
         {questionSet.questions.map((item, index) => (
           <label key={item.id} className="block">
             <span className="field-label">
               {index + 1}. {item.question}
-              {item.required ? <span className="ml-1 text-red-500">*</span> : null}
             </span>
             <textarea
               className="field min-h-[92px] resize-y text-xs leading-5"
