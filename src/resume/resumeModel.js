@@ -85,22 +85,65 @@ function toHref(value) {
   return URLISH.test(value) ? `https://${value}` : "";
 }
 
+// 网址：可带 http(s)://，域名后缀必须是字母（避免把 "6.5" 当成网址），不匹配邮箱里的域名
+const URL_PATTERN = /(?<![@\w.])(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s，,;；|｜]*)?/gi;
+const LABEL_TRIM = /^[\s,，;；|｜:：、/]+|[\s,，;；|｜:：、/]+$/g;
+
+function autoLinkLabel(url, labels) {
+  if (/github\.com/i.test(url)) return labels.github;
+  if (/linkedin\.com/i.test(url)) return labels.linkedin;
+  return labels.link;
+}
+
+/**
+ * 解析"个人链接"一栏。支持这些写法（可混用，用空格、逗号、竖线或换行分隔）：
+ *   github.com/xxx madelainewang.me
+ *   GitHub github.com/xxx  作品集 madelainewang.me
+ *   作品集：https://madelainewang.me | 小红书 王皮皮（累计 67 万+浏览）
+ * 规则：每个网址前面的文字是它的名称；最后一个网址之后不含网址的文字，
+ * 第一个词作名称、其余作内容（不带链接）。
+ */
+export function parseLinks(raw, labels = CONTACT_LABELS.zh, fallbackLabel = labels.link) {
+  const text = String(raw || "");
+  const items = [];
+  let cursor = 0;
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const url = match[0].replace(/[.)）]+$/, "");
+    const label = text.slice(cursor, match.index).replace(LABEL_TRIM, "");
+    items.push({
+      label: label || autoLinkLabel(url, labels),
+      value: url.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
+      href: toHref(url),
+    });
+    cursor = match.index + match[0].length;
+  }
+  for (const segment of text.slice(cursor).split(/[\n|｜;；]+/)) {
+    const rest = segment.replace(LABEL_TRIM, "");
+    if (!rest) continue;
+    const [, label, value] = rest.match(/^(\S+?)[\s:：]+(.+)$/) || [];
+    items.push(label ? { label, value: value.trim() } : { label: fallbackLabel, value: rest });
+  }
+  return items;
+}
+
+/** 「王欣培 Madelaine」→ 中文名加粗，英文名灰色；求职意向接在英文名后面。 */
+function splitName(fullName, targetRole) {
+  const match = fullName.match(/^([\u3400-\u9fff·•]+)\s+([A-Za-z][A-Za-z .'-]*)$/);
+  const name = match ? match[1] : fullName;
+  const role = [match?.[2]?.trim(), targetRole].filter(Boolean).join(" | ");
+  return { name, role };
+}
+
 function buildContacts(basics, labels) {
   const items = [];
   if (clean(basics.phone)) items.push({ label: labels.phone, value: clean(basics.phone) });
   if (clean(basics.email)) {
     items.push({ label: labels.email, value: clean(basics.email), href: `mailto:${clean(basics.email)}` });
   }
-  for (const link of String(basics.links || "").split(/[\s,，;；|｜]+/).map(clean).filter(Boolean)) {
-    const label = /github\.com/i.test(link)
-      ? labels.github
-      : /linkedin\.com/i.test(link)
-        ? labels.linkedin
-        : labels.link;
-    items.push({ label, value: link.replace(/^https?:\/\//i, "").replace(/\/$/, ""), href: toHref(link) });
-  }
+  items.push(...parseLinks(basics.links, labels));
   if (clean(basics.location)) items.push({ label: labels.location, value: clean(basics.location) });
-  if (clean(basics.extraContact)) items.push({ label: labels.extra, value: clean(basics.extraContact) });
+  // "其他联系方式"同样支持"名称 内容"写法，例如"小红书 王皮皮"、"微信 abc123"
+  items.push(...parseLinks(basics.extraContact, labels, labels.extra));
   return items;
 }
 
@@ -111,8 +154,7 @@ export function buildResumeModel(profile, { dash = " – ", metaSeparator = " | 
   const basics = profile?.basics || {};
 
   const header = {
-    name: clean(basics.name) || (language === "zh" ? "你的姓名" : "Your Name"),
-    role: clean(basics.targetRole),
+    ...splitName(clean(basics.name) || (language === "zh" ? "你的姓名" : "Your Name"), clean(basics.targetRole)),
     contacts: buildContacts(basics, CONTACT_LABELS[language]),
     photo: basics.photo || "",
   };

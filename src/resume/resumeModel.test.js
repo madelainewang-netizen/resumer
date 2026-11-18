@@ -76,3 +76,51 @@ describe("buildResumeModel", () => {
     expect(education.entries.every((entry) => entry.title || entry.subtitle)).toBe(true);
   });
 });
+
+import { parseLinks } from "./resumeModel";
+
+describe("parseLinks", () => {
+  it("uses the words before each URL as its label", () => {
+    expect(parseLinks("GitHub github.com/madelainewang-netizen  作品集 madelainewang.me")).toEqual([
+      { label: "GitHub", value: "github.com/madelainewang-netizen", href: "https://github.com/madelainewang-netizen" },
+      { label: "作品集", value: "madelainewang.me", href: "https://madelainewang.me" },
+    ]);
+  });
+
+  it("auto-labels bare URLs", () => {
+    const items = parseLinks("github.com/a, https://example.com/");
+    expect(items.map((item) => item.label)).toEqual(["GitHub", "主页"]);
+    expect(items[1].value).toBe("example.com");
+  });
+
+  it("supports colons, separators and trailing non-link items", () => {
+    const items = parseLinks("作品集：https://madelainewang.me | 小红书 王皮皮（累计 67 万+浏览）");
+    expect(items).toEqual([
+      { label: "作品集", value: "madelainewang.me", href: "https://madelainewang.me" },
+      { label: "小红书", value: "王皮皮（累计 67 万+浏览）" },
+    ]);
+  });
+
+  it("does not treat numbers like 6.5 or email domains as links", () => {
+    expect(parseLinks("IELTS 6.5")).toEqual([{ label: "IELTS", value: "6.5" }]);
+    expect(parseLinks("a@b.com")).toEqual([{ label: "主页", value: "a@b.com" }]);
+  });
+});
+
+describe("extra contacts", () => {
+  it("parses '名称 内容' pairs and falls back to 其他", () => {
+    expect(parseLinks("小红书 王皮皮 | 可立即到岗", undefined, "其他")).toEqual([
+      { label: "小红书", value: "王皮皮" },
+      { label: "其他", value: "可立即到岗" },
+    ]);
+  });
+});
+
+describe("header name", () => {
+  it("shows an English name after the Chinese name in the secondary style", () => {
+    const profile = structuredClone(sampleProfile);
+    profile.basics.name = "王欣培 Madelaine";
+    profile.basics.targetRole = "";
+    expect(buildResumeModel(profile).header).toMatchObject({ name: "王欣培", role: "Madelaine" });
+  });
+});
