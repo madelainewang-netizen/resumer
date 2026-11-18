@@ -1,5 +1,5 @@
 import { apiError, requirePost, sendEvent, startSSE } from "./_lib/http.js";
-import { streamStructuredResponse } from "./_lib/ai.js";
+import { streamStructuredResponse, WRITING_RULES } from "./_lib/ai.js";
 import {
   evidenceDraftJSONSchema,
   evidenceQuestionsJSONSchema,
@@ -28,6 +28,7 @@ export default async function handler(req, res) {
         schemaName: "evidence_questions",
         schema: evidenceQuestionsJSONSchema,
         sendEvent,
+        temperature: 0.7,
         system: `你是严谨的职业经历教练。目标是通过提问帮助用户回忆真实经历，而不是替用户创造经历。
 根据目标岗位能力缺口和候选人当前简历，生成 4-6 个简短、具体、彼此不重复的问题。
 问题应依次覆盖：经历场景、用户职责、具体行动、协作对象、困难与解决方式、真实结果。
@@ -45,7 +46,10 @@ export default async function handler(req, res) {
         schemaName: "evidence_draft",
         schema: evidenceDraftJSONSchema,
         sendEvent,
-        system: `你是严格遵守事实边界的简历编辑。只根据用户回答生成一条经历草稿。
+        temperature: 0.5,
+        system: `${WRITING_RULES}
+
+你是严格遵守事实边界的简历编辑。只根据用户回答生成一条经历草稿。
 规则：
 1. 不得增加用户没有提供的公司、项目、职责、技能、数字、日期或结果。
 2. 信息缺失时对应字段返回空字符串，不得猜测。

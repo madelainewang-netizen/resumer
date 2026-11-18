@@ -29,11 +29,11 @@ export function apiError(res, error) {
     error?.status === 429
       ? "请求过于频繁，请稍后重试"
       : error?.status === 401
-        ? "DeepSeek API key 无效，请检查 DEEPSEEK_API_KEY"
+        ? "AI 服务的 API key 无效，请检查 AI_API_KEY"
         : error?.status === 402
-          ? "DeepSeek 账户余额不足，请充值后重试"
+          ? "AI 服务账户余额不足，请充值后重试"
         : error?.status === 403
-          ? "DeepSeek 拒绝了请求（403），请检查账户状态和 API 权限"
+          ? "AI 服务拒绝了请求（403），请检查账户状态和 API 权限"
         : error?.message || "AI 服务暂时不可用";
 
   if (res.headersSent) {

@@ -8,18 +8,19 @@ Resumer 是一个面向中文求职场景的简历定制工作台。用户维护
 - 支持上传已有 PDF 简历，解析为可编辑字段并保留原始区块顺序
 - 支持独立上传 JPG/PNG 证件照，自动裁切压缩且不发送给 AI
 - localStorage 自动保存与历史版本快照
-- DeepSeek API 分析 JD 和生成简历优化建议
-- Structured Outputs 校验 AI 返回结构
+- 可切换的大模型服务（DeepSeek / 通义千问 / Kimi / 智谱等 OpenAI 兼容接口）
+- AI 只返回改写文字，公司、日期等事实字段不经过模型；格式错误自动重试一次
+- 改写中出现原文没有的数字时自动标记“需核实”
 - 原文/建议对照、逐条确认和一键恢复
 - 固定规则计算硬技能、核心要求证据和经历相关性
-- `@react-pdf/renderer` 生成支持中文的单页 A4 PDF
-- 内容超出安全容量时阻止导出，避免生成不可读的小字简历
+- `@react-pdf/renderer` 生成支持中文的 A4 PDF，最终检查页直接预览真实 PDF，所见即所得
+- 网页实时预览与 PDF 共用同一套内容模型、字体和版式参数
 
 ## 技术栈
 
 - React 19 + Vite
 - Tailwind CSS 4
-- DeepSeek Chat Completions API
+- OpenAI 兼容的 Chat Completions API（默认 DeepSeek）
 - Vercel Functions
 - Zod
 - `@react-pdf/renderer`
@@ -38,9 +39,12 @@ npm run dev
 在 `.env.local` 中配置：
 
 ```bash
-DEEPSEEK_API_KEY=your_key_here
-DEEPSEEK_MODEL=deepseek-chat
+AI_PROVIDER=deepseek   # 或 qwen / moonshot / zhipu
+AI_API_KEY=your_key_here
+# AI_MODEL=deepseek-chat  # 可选，覆盖默认模型
 ```
+
+旧的 `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` 仍然有效。
 
 API key 只在服务端读取，不会进入浏览器构建产物。
 
@@ -62,8 +66,8 @@ npm run build
 
 - 简历档案、当前定制会话和历史版本默认保存在当前浏览器。
 - 上传的证件照会压缩为本地 Data URL，仅用于页面预览与 PDF 导出。
-- PDF 简历导入时，文字与版面顺序先在服务端本地提取，再发送给 DeepSeek 转换为结构化字段。
-- 执行 JD 分析和简历优化时，相应文本会发送给配置的 DeepSeek API。
+- PDF 简历导入时，文字与版面顺序先在服务端本地提取，再发送给配置的大模型转换为结构化字段。
+- 执行 JD 分析和简历优化时，相应文本会发送给配置的大模型 API。
 - AI 不应创建用户未提供的数字、职责、技能或成果；用户仍需逐条确认建议。
 - “文本匹配度”只表示简历内容与 JD 的覆盖程度，不代表面试或录用概率。
 
@@ -79,3 +83,5 @@ npm run build
 ## 字体许可
 
 PDF 使用 [Noto Sans SC](https://github.com/notofonts/noto-cjk)，字体遵循 SIL Open Font License。
+
+`public/fonts/` 中是从 Noto Sans SC 可变字体导出的 Regular / Bold 静态字重（保留常用汉字、拉丁字符与标点）。react-pdf 不支持可变字体，必须使用静态字重，否则整份 PDF 会以 Thin 字重输出、粗体失效。重新生成：`python3 scripts/build-fonts.py <NotoSansSC-VF.ttf>`。

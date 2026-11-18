@@ -29,7 +29,7 @@ import {
   restoreSummary,
 } from "../utils/condenseResume";
 import { profileSignature } from "../utils/profileSignature";
-import { normalizeCompactLevel } from "../utils/resumeLayout";
+import { COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resumeLayout";
 import { updateTailoredBullet } from "../utils/tailorProfile";
 import ResumePaper from "./ResumePaper";
 import { LoadingButton, SectionHeader, StatusPill } from "./ui";
@@ -512,10 +512,9 @@ export default function TailorWorkspace({
                   value={compactLevel}
                   onChange={(event) => setCompactLevel(Number(event.target.value))}
                 >
-                  <option value={0}>舒展</option>
-                  <option value={1}>紧凑</option>
-                  <option value={2}>更紧凑</option>
-                  <option value={3}>最小可读</option>
+                  {COMPACT_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>{level.label}</option>
+                  ))}
                 </select>
               </div>
               <ResumePaper profile={displayProfile} compactLevel={compactLevel} />

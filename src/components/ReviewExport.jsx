@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -11,8 +11,9 @@ import {
 } from "lucide-react";
 import { useResumerServices } from "../services/ResumerServicesContext";
 import { calculateMatchScore } from "../utils/matchScore";
-import { normalizeCompactLevel } from "../utils/resumeLayout";
-import ResumePaper from "./ResumePaper";
+import { downloadBlob, generateResumePdf, resumeFileName } from "../pdf/generatePdf";
+import { COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resumeLayout";
+import PdfPreview from "./PdfPreview";
 import { SectionHeader, StatusPill } from "./ui";
 
 export default function ReviewExport({
@@ -26,7 +27,7 @@ export default function ReviewExport({
   notify,
 }) {
   const { explainMatch } = useResumerServices();
-  const paperRef = useRef(null);
+  const latestPdf = useRef(null);
   const [localCompactLevel, setLocalCompactLevel] = useState(2);
   const compactLevel = normalizeCompactLevel(
     controlledCompactLevel ?? localCompactLevel,
@@ -41,45 +42,33 @@ export default function ReviewExport({
       ),
     );
   };
-  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [pageCount, setPageCount] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [reviewProgress, setReviewProgress] = useState("");
   const score = useMemo(() => calculateMatchScore(profile, analysis), [profile, analysis]);
-  const likelyOverflow = isOverflowing && compactLevel === 3;
-
-  useLayoutEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      const paper = paperRef.current;
-      if (!paper) return;
-      const overflows = paper.scrollHeight > paper.clientHeight + 2;
-      setIsOverflowing(overflows);
-    });
-    return () => window.cancelAnimationFrame(frame);
+  const likelyOverflow = pageCount > 1;
+  const handlePdfReady = useCallback(({ blob, pages }) => {
+    latestPdf.current = { blob, profile, compactLevel };
+    setPageCount(pages);
   }, [profile, compactLevel]);
+
   const warnings = [
     ...score.missingKeywords.slice(0, 3).map((keyword) => `缺少“${keyword}”相关证据`),
     ...(profile.basics.summary.length > 150 ? ["职业摘要较长，建议压缩到 2–3 行"] : []),
-    ...(likelyOverflow ? ["内容可能超过一页，导出时会按 A4 自动分页；如需单页请继续精简"] : []),
+    ...(likelyOverflow ? [`当前 PDF 共 ${pageCount} 页；如需单页，可调高紧凑度或精简内容`] : []),
   ];
 
   const exportPDF = async () => {
     setExporting(true);
     try {
-      const [{ pdf }, { default: ResumeDocument }] = await Promise.all([
-        import("@react-pdf/renderer"),
-        import("../pdf/ResumeDocument"),
-      ]);
-      const blob = await pdf(
-        <ResumeDocument profile={profile} compactLevel={compactLevel} />,
-      ).toBlob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${profile.basics.name || "Resumer"}-${profile.basics.targetRole || "Resume"}.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      notify("PDF 已生成", "内容会按 A4 自动分页，并保持每页边距一致。");
+      const cached = latestPdf.current;
+      const blob =
+        cached && cached.profile === profile && cached.compactLevel === compactLevel
+          ? cached.blob
+          : await generateResumePdf(profile, compactLevel);
+      downloadBlob(blob, resumeFileName(profile));
+      notify("PDF 已下载", likelyOverflow ? `共 ${pageCount} 页 A4。` : "单页 A4，与右侧预览完全一致。");
     } catch (error) {
       notify("PDF 生成失败", error.message, "error");
     } finally {
@@ -136,7 +125,7 @@ export default function ReviewExport({
               <MetricCard
                 icon={Save}
                 label="页面长度"
-                value={likelyOverflow ? "多页" : "1页内"}
+                value={`${pageCount} 页`}
                 tone={likelyOverflow ? "warn" : "good"}
               />
             </div>
@@ -238,9 +227,9 @@ export default function ReviewExport({
           <aside className="sticky top-[78px] self-start">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h2 className="text-xs font-semibold">最终 A4 预览</h2>
+                <h2 className="text-xs font-semibold">PDF 实际效果</h2>
                 <p className="mt-0.5 text-[10px] text-neutral-400">
-                  {likelyOverflow ? "导出将自动分页" : "单页安全容量内"}
+                  {likelyOverflow ? `共 ${pageCount} 页` : "单页 A4 · 与下载文件一致"}
                 </p>
               </div>
               <select
@@ -248,13 +237,12 @@ export default function ReviewExport({
                 value={compactLevel}
                 onChange={(event) => setCompactLevel(Number(event.target.value))}
               >
-                <option value={0}>舒展</option>
-                <option value={1}>紧凑</option>
-                <option value={2}>更紧凑</option>
-                <option value={3}>最小可读</option>
+                {COMPACT_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>{level.label}</option>
+                ))}
               </select>
             </div>
-            <ResumePaper ref={paperRef} profile={profile} compactLevel={compactLevel} />
+            <PdfPreview profile={profile} compactLevel={compactLevel} onReady={handlePdfReady} />
             <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
               <button
                 className="primary-button"
@@ -271,7 +259,7 @@ export default function ReviewExport({
             </div>
             {likelyOverflow ? (
               <p className="mt-2 text-center text-[10px] text-amber-600">
-                内容可能超过一页，可继续精简，也可以直接导出多页 PDF
+                内容超过一页：可以切换到更紧凑的版式、精简内容，或直接导出多页 PDF
               </p>
             ) : null}
           </aside>

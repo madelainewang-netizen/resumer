@@ -50,8 +50,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(5173, "127.0.0.1", () => {
   console.log("Resumer ready at http://127.0.0.1:5173/");
-  if (!process.env.DEEPSEEK_API_KEY) {
-    console.log("AI APIs disabled: add DEEPSEEK_API_KEY to .env.local");
+  if (!process.env.AI_API_KEY && !process.env.DEEPSEEK_API_KEY) {
+    console.log("AI APIs disabled: add AI_API_KEY to .env.local");
   }
 });
 

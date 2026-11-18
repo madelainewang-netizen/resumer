@@ -1,26 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { hyphenateResumeWord, wrapResumeText } from "./textWrapping";
+import { hyphenateResumeWord } from "./textWrapping";
+
+const pieces = (word) => hyphenateResumeWord(word).filter(Boolean);
 
 describe("hyphenateResumeWord", () => {
-  it("keeps words intact so react-pdf does not insert visible hyphens", () => {
-    expect(hyphenateResumeWord("Agent自动化工作流搭建")).toEqual([
-      "Agent自动化工作流搭建",
-    ]);
-  });
-
   it("keeps ordinary English words unbroken", () => {
     expect(hyphenateResumeWord("Campaign")).toEqual(["Campaign"]);
   });
 
-  it("wraps long CJK text without zero-width characters or visible hyphen markers", () => {
-    const wrapped = wrapResumeText(
-      "用户研究证据：围绕生成式AI产品体验整理访谈反馈，需求线索和使用障碍，输出可复盘的问题清单并支持产品讨论。",
-      { maxUnits: 18 },
-    );
+  it("splits Chinese into breakable characters joined by empty strings (no visible hyphen)", () => {
+    expect(hyphenateResumeWord("用户研究")).toEqual(["用", "", "户", "", "研", "", "究"]);
+  });
 
-    expect(wrapped).toContain("\n");
-    expect(wrapped).not.toContain("\u200B");
-    expect(wrapped).not.toContain("-\n");
-    expect(wrapped).not.toContain("\n。");
+  it("keeps Latin words, numbers and percentages intact inside Chinese text", () => {
+    expect(pieces("搭建Agent工作流提升18%。")).toEqual(["搭", "建", "Agent", "工", "作", "流", "提", "升", "18%。"]);
+  });
+
+  it("never starts a line with closing punctuation or ends one with an opening bracket", () => {
+    const result = pieces("数据（DAU、留存），完成。");
+    expect(result.some((piece) => /^[，。、）]/.test(piece))).toBe(false);
+    expect(result.some((piece) => /（$/.test(piece))).toBe(false);
+  });
+
+  it("allows very long URLs to break after separators", () => {
+    const result = pieces("https://notion.so/workspace/product-requirements-template-2024");
+    expect(result.length).toBeGreaterThan(1);
+    expect(result.join("")).toBe("https://notion.so/workspace/product-requirements-template-2024");
   });
 });

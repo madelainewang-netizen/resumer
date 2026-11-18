@@ -99,7 +99,7 @@ export default function ResumeImport({ onImported, notify }) {
         <p className="mt-3 text-[10px] text-neutral-400">最大 3MB · 支持文本型和扫描型 PDF</p>
         {aiConfigured === false ? (
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-700">
-            解析服务尚未配置：请在 .env.local 添加 DEEPSEEK_API_KEY 后重启
+            解析服务尚未配置：请在 .env.local 添加 AI_API_KEY 后重启
           </p>
         ) : null}
       </div>
@@ -177,7 +177,7 @@ export default function ResumeImport({ onImported, notify }) {
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <p className="text-sm font-semibold">准备解析这份简历</p>
             <p className="mt-2 max-w-sm text-xs leading-5 text-neutral-400">
-              PDF 文字会先在本地提取，再发送给 DeepSeek 转换为结构化字段。照片不会发送给模型。
+              PDF 文字会先在本地提取，再发送给大模型转换为结构化字段。照片不会发送给模型。
             </p>
             <button
               className="primary-button mt-5"
