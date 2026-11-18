@@ -81,3 +81,19 @@ describe("resume SOP skill", () => {
     }
   });
 });
+
+describe("JD tailoring skill", () => {
+  it("is loaded by the tailor endpoint and no longer lets unrelated bullets be kept as-is", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("api/tailor-resume.js", "utf8")).toContain("JD_TAILORING_SKILL");
+    const { JD_TAILORING_SKILL } = await import("./skills/jdTailoring.js");
+    expect(JD_TAILORING_SKILL).toContain("可迁移");
+    expect(JD_TAILORING_SKILL).not.toMatch(/无关.{0,10}keep/);
+  });
+
+  it("passes focus and overall strategy through to the UI", () => {
+    const merged = mergeTailorRewrite(sampleProfile, { focus: ["数据分析", " "], overall: "按产品岗 改写", summary: "", bullets: [], gaps: [] });
+    expect(merged.tailorFocus).toEqual(["数据分析"]);
+    expect(merged.tailorOverall).toBe("按产品岗改写");
+  });
+});

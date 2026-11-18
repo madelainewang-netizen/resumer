@@ -1,6 +1,7 @@
 import { apiError, requirePost, sendEvent, startSSE } from "./_lib/http.js";
 import { streamStructuredResponse, WRITING_RULES } from "./_lib/ai.js";
 import { RESUME_SOP } from "./_lib/skills/resumeSop.js";
+import { JD_TAILORING_SKILL } from "./_lib/skills/jdTailoring.js";
 import { buildTailorInput, mergeTailorRewrite, tailorRewriteJSONSchema } from "./_lib/tailor.js";
 
 const SYSTEM = `你是一位资深的中文简历编辑，帮候选人针对目标岗位改写经历描述。你的任务是让真实经历被招聘方读懂、读到重点，而不是创造经历。
@@ -15,12 +16,14 @@ const SYSTEM = `你是一位资深的中文简历编辑，帮候选人针对目�
 
 ${RESUME_SOP}
 
-本次任务的具体要求（这是"针对岗位定制"，不是通用润色）：
-- 先读 JD 分析，列出这个岗位最看重的 3–5 项能力，再逐条判断每个 bullet：
-  · action = "rewrite"：这条经历和岗位要求有关，但现在的写法没有把相关的部分放在前面、小标题没有用岗位的能力说法、或者混着与岗位无关的内容。改写时可以：把小标题换成岗位关心的能力词；把和 JD 对应的事实提到句首；删掉与这个岗位无关的半句；把 JD 里的专业说法换进来（前提是原文有对应事实）。
-  · action = "keep"：这条已经直接对上岗位要求、写法也符合 SOP，或者它和岗位无关、任何改写都只能是换个说法。此时 text 原样返回原文。
-- 只调整空格、标点、语序但意思和侧重点都没变的，不算改写，应该用 keep。不要为了显得有改动而改。
-- reason 用一句话说明：rewrite 时说改了什么、对应 JD 的哪项要求（例："小标题改成'数据分析'，对应 JD 的数据驱动要求，SQL 归因提到句首"）；keep 时说为什么不改（例："已直接体现 JD 要求的 Agent 搭建经验"）。不超过 40 字。
+本次任务是"针对岗位定制"，不是通用润色。请按下面这份《岗位定制改写 Skill》逐条处理：
+
+${JD_TAILORING_SKILL}
+
+补充要求：
+- 每条 bullet 给出 action：rewrite 或 keep；keep 时 text 原样返回原文。
+- 只调整空格、标点但侧重点没变的，不算改写，应该用 keep。
+- reason 用一句话，不超过 40 字，例："小标题改为'数据分析'，SQL 归因提到句首，对应 JD 的数据驱动要求"。
 - 正文一般 40–80 个汉字，信息少的条目宁可短，不要注水。
 - 职业摘要（summary）：若原文有摘要，按岗位改写为 1–2 句、不超过 70 个汉字，只使用档案中能找到依据的信息；若原文为空，返回空字符串。
 - bullets 必须覆盖输入中每一个 bullet 的 id，id 原样返回，不要新增或遗漏。
@@ -68,7 +71,14 @@ export default async function handler(req, res) {
       input: `<jd_analysis>\n${JSON.stringify(analysis)}\n</jd_analysis>
 <candidate_resume>\n${JSON.stringify(input)}\n</candidate_resume>`,
     });
-    sendEvent(res, { type: "result", data: mergeTailorRewrite(profile, events[0]) });
+    const rewrite = events[0];
+    console.info("[tailor-actions]", {
+      rewrite: (rewrite?.bullets || []).filter((bullet) => bullet.action === "rewrite").length,
+      keep: (rewrite?.bullets || []).filter((bullet) => bullet.action === "keep").length,
+      gaps: (rewrite?.gaps || []).length,
+      focus: rewrite?.focus,
+    });
+    sendEvent(res, { type: "result", data: mergeTailorRewrite(profile, rewrite) });
     res.end();
   } catch (error) {
     apiError(res, error);

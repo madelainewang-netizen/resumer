@@ -6,6 +6,24 @@ import {
   evidenceQuestionsJSONSchema,
 } from "./_lib/schemas.js";
 
+function listExistingItems(profile) {
+  return [
+    ...(profile.experience || []).map((item) => ({
+      id: item.id,
+      type: "工作/实习",
+      name: [item.company, item.role].filter(Boolean).join(" · "),
+    })),
+    ...(profile.projects || []).map((item) => ({ id: item.id, type: "项目", name: item.name })),
+    ...(profile.customSections || []).flatMap((section) =>
+      (section.items || []).map((item) => ({
+        id: item.id,
+        type: section.title,
+        name: [item.title, item.subtitle].filter(Boolean).join(" · "),
+      })),
+    ),
+  ];
+}
+
 export default async function handler(req, res) {
   if (!requirePost(req, res)) return;
   const { action, requirement, evidenceHint, analysis, profile, answers, questions } =
@@ -62,8 +80,10 @@ ${RESUME_SOP}
 3. suggestedType 只能是 experience、project 或 custom。
 4. bullets 输出 1-4 条，使用“行动 + 方法 + 真实结果/目的”；没有结果时只写用户确认过的行动和目的。
 5. verificationChecklist 列出草稿中仍需用户核对的事实；完全明确时返回空数组。
-6. 这只是待确认草稿，不得夸大用户角色。`,
+6. 这只是待确认草稿，不得夸大用户角色。
+7. 先判断这件事属于哪里：如果用户回答的是在已有某段经历（同一家公司、同一个项目）里做的事，targetItemId 填 existing_items 里那段经历的 id，title、organization、role、location、日期都返回空字符串，bullets 只写这次新补充的事；只有当它是一段全新的经历时，targetItemId 才返回空字符串，并完整填写经历信息。`,
         input: `<requirement>${requirement}</requirement>
+<existing_items>${JSON.stringify(listExistingItems(profile))}</existing_items>
 <questions>${JSON.stringify(questions)}</questions>
 <user_answers>${JSON.stringify(answers)}</user_answers>
 <candidate_profile>${JSON.stringify(profile)}</candidate_profile>`,

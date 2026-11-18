@@ -92,3 +92,35 @@ describe("evidence profile mapping", () => {
     ]);
   });
 });
+
+import { listEvidenceTargets, mergeAddedEvidence } from "./evidence";
+
+describe("adding evidence to an existing entry", () => {
+  const base = {
+    sectionOrder: ["experience"],
+    experience: [{ id: "exp_a", company: "SMCP", role: "实习生", bullets: [{ id: "b1", text: "原有条目" }] }],
+    projects: [],
+    customSections: [],
+  };
+
+  it("appends bullets to the chosen experience instead of creating a new one", () => {
+    const next = addEvidenceToProfile(base, { targetItemId: "exp_a", suggestedType: "experience", bullets: ["新补充的一条"] });
+    expect(next.experience).toHaveLength(1);
+    expect(next.experience[0].bullets.map((bullet) => bullet.text)).toEqual(["原有条目", "新补充的一条"]);
+  });
+
+  it("lists existing entries as targets", () => {
+    expect(listEvidenceTargets(base)).toEqual([{ id: "exp_a", label: "工作/实习：SMCP · 实习生" }]);
+  });
+
+  it("syncs appended bullets into the tailored result without touching rewritten ones", () => {
+    const tailored = {
+      ...base,
+      experience: [{ ...base.experience[0], bullets: [{ id: "b1", text: "改写后", originalText: "原有条目" }] }],
+    };
+    const next = addEvidenceToProfile(base, { targetItemId: "exp_a", bullets: ["新补充的一条"] });
+    const merged = mergeAddedEvidence(tailored, base, next);
+    expect(merged.experience[0].bullets.map((bullet) => bullet.text)).toEqual(["改写后", "新补充的一条"]);
+    expect(merged.experience[0].bullets[1].originalText).toBe("新补充的一条");
+  });
+});

@@ -35,7 +35,7 @@ import { updateTailoredBullet } from "../utils/tailorProfile";
 import ResumePaper from "./ResumePaper";
 import { LoadingButton, SectionHeader, StatusPill } from "./ui";
 import EvidenceCoach from "./EvidenceCoach";
-import { addEvidenceToProfile } from "../utils/evidence";
+import { addEvidenceToProfile, mergeAddedEvidence } from "../utils/evidence";
 import { evaluateRequirementEvidence } from "../utils/matchScore";
 
 export default function TailorWorkspace({
@@ -114,35 +114,17 @@ export default function TailorWorkspace({
   // 补充的新经历同时写入简历档案和当前定制结果，不需要重新生成
   const addEvidence = (draft) => {
     const nextProfile = addEvidenceToProfile(profile, draft);
-    const added = {
-      experience: nextProfile.experience.slice(profile.experience.length),
-      projects: nextProfile.projects.slice(profile.projects.length),
-      customSections: nextProfile.customSections,
-    };
     setProfile(nextProfile);
-    setTailoredProfile((current) => {
-      if (!current) return current;
-      const markOriginal = (item) => ({
-        ...item,
-        bullets: item.bullets.map((bullet) => ({ ...bullet, originalText: bullet.text })),
-      });
-      return {
-        ...current,
-        sectionOrder: nextProfile.sectionOrder,
-        experience: [...current.experience, ...added.experience.map(markOriginal)],
-        projects: [...current.projects, ...added.projects.map(markOriginal)],
-        customSections: added.customSections.map((section) => {
-          const existing = current.customSections.find((item) => item.id === section.id);
-          if (!existing) return { ...section, items: section.items.map(markOriginal) };
-          const known = new Set(existing.items.map((item) => item.id));
-          return {
-            ...existing,
-            items: [...existing.items, ...section.items.filter((item) => !known.has(item.id)).map(markOriginal)],
-          };
-        }),
-        tailorGaps: (current.tailorGaps || []).filter((gap) => gap.requirement !== coachTarget?.requirement),
-      };
-    });
+    setTailoredProfile((current) =>
+      current
+        ? {
+            ...mergeAddedEvidence(current, profile, nextProfile),
+            tailorGaps: (current.tailorGaps || []).filter(
+              (gap) => gap.requirement !== coachTarget?.requirement,
+            ),
+          }
+        : current,
+    );
     setTailoredSourceSignature(profileSignature(nextProfile));
   };
 
@@ -448,6 +430,27 @@ export default function TailorWorkspace({
                     请重点检查数字、工具、职责范围和结果。只有你提供过的信息才应保留。
                   </p>
                 </div>
+
+                {isTailoredCurrent && (tailoredProfile?.tailorFocus?.length || tailoredProfile?.tailorOverall) ? (
+                  <div className="mb-4 rounded-xl border border-neutral-200 p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                      <WandSparkles size={14} />
+                      这次按这些岗位能力改写
+                    </div>
+                    {tailoredProfile.tailorFocus?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {tailoredProfile.tailorFocus.map((item) => (
+                          <span key={item} className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] text-neutral-700">
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {tailoredProfile.tailorOverall ? (
+                      <p className="mt-2 text-[11px] leading-5 text-neutral-500">{tailoredProfile.tailorOverall}</p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {isTailoredCurrent && changedBullets.length === 0 ? (
                   <p className="mb-4 rounded-xl bg-neutral-50 p-3.5 text-[11px] leading-5 text-neutral-500">
