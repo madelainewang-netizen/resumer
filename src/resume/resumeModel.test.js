@@ -24,6 +24,34 @@ describe("buildResumeModel", () => {
     expect(buildResumeModel(profile).sections[0].title).toBe("Summary");
   });
 
+  it("formats entries like the author's resume: degree first, location | date on the right", () => {
+    const model = buildResumeModel(sampleProfile);
+    const education = model.sections.find((section) => section.key === "education").entries[0];
+    expect(education.title).toBe(`${sampleProfile.education[0].degree} ${sampleProfile.education[0].field}`);
+    expect(education.subtitle).toBe(sampleProfile.education[0].school);
+    const experience = model.sections.find((section) => section.key === "experience").entries[0];
+    expect(experience.meta).toMatch(/^上海 \| /);
+  });
+
+  it("builds labeled, clickable contacts and a footer email", () => {
+    const profile = structuredClone(sampleProfile);
+    profile.basics.links = "github.com/someone, https://example.com/";
+    const model = buildResumeModel(profile);
+    expect(model.header.contacts.find((item) => item.label === "GitHub")).toMatchObject({
+      href: "https://github.com/someone",
+    });
+    expect(model.header.contacts.find((item) => item.label === "邮箱").href).toMatch(/^mailto:/);
+    expect(model.footer).toBe(profile.basics.email);
+  });
+
+  it("shows grouped skills like '产品：…' as bullet lines", () => {
+    const profile = structuredClone(sampleProfile);
+    profile.skills = ["产品：需求分析、PRD 撰写", "AI：Agent 工作流"];
+    const skills = buildResumeModel(profile).sections.find((section) => section.key === "skills");
+    expect(skills.kind).toBe("entries");
+    expect(skills.entries[0].bullets[0]).toMatchObject({ lead: "产品：", text: "需求分析、PRD 撰写" });
+  });
+
   it("splits bold lead-ins from bullet text", () => {
     const profile = structuredClone(sampleProfile);
     profile.experience[0].bullets = [{ id: "b1", text: "需求规划：推动 3 个版本上线" }];

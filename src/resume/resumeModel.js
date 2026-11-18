@@ -30,6 +30,11 @@ const TITLES = {
   },
 };
 
+const CONTACT_LABELS = {
+  zh: { phone: "电话", email: "邮箱", location: "现居", extra: "其他", github: "GitHub", linkedin: "LinkedIn", link: "主页" },
+  en: { phone: "Phone", email: "Email", location: "Location", extra: "Other", github: "GitHub", linkedin: "LinkedIn", link: "Website" },
+};
+
 const CJK = /[㐀-鿿]/g;
 const LATIN = /[A-Za-z]/g;
 
@@ -73,7 +78,33 @@ function dateRange(start, end, dash) {
   return joinParts([start, end], dash);
 }
 
-export function buildResumeModel(profile, { dash = " – " } = {}) {
+const URLISH = /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i;
+
+function toHref(value) {
+  if (/^https?:\/\//i.test(value)) return value;
+  return URLISH.test(value) ? `https://${value}` : "";
+}
+
+function buildContacts(basics, labels) {
+  const items = [];
+  if (clean(basics.phone)) items.push({ label: labels.phone, value: clean(basics.phone) });
+  if (clean(basics.email)) {
+    items.push({ label: labels.email, value: clean(basics.email), href: `mailto:${clean(basics.email)}` });
+  }
+  for (const link of String(basics.links || "").split(/[\s,，;；|｜]+/).map(clean).filter(Boolean)) {
+    const label = /github\.com/i.test(link)
+      ? labels.github
+      : /linkedin\.com/i.test(link)
+        ? labels.linkedin
+        : labels.link;
+    items.push({ label, value: link.replace(/^https?:\/\//i, "").replace(/\/$/, ""), href: toHref(link) });
+  }
+  if (clean(basics.location)) items.push({ label: labels.location, value: clean(basics.location) });
+  if (clean(basics.extraContact)) items.push({ label: labels.extra, value: clean(basics.extraContact) });
+  return items;
+}
+
+export function buildResumeModel(profile, { dash = " – ", metaSeparator = " | " } = {}) {
   const language = detectResumeLanguage(profile);
   const titles = TITLES[language];
   const flowCV = profile?.source?.template === "flowcv";
@@ -82,11 +113,10 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
   const header = {
     name: clean(basics.name) || (language === "zh" ? "你的姓名" : "Your Name"),
     role: clean(basics.targetRole),
-    contacts: [basics.phone, basics.email, basics.location, basics.extraContact, basics.links]
-      .map(clean)
-      .filter(Boolean),
+    contacts: buildContacts(basics, CONTACT_LABELS[language]),
     photo: basics.photo || "",
   };
+  const footer = clean(basics.email);
 
   const sections = [];
   if (clean(basics.summary)) {
@@ -124,7 +154,8 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
         id: item.id,
         title: clean(item.title),
         subtitle: clean(item.subtitle),
-        meta: joinParts([item.location, item.date], " · "),
+        separator: " | ",
+        meta: joinParts([item.location, item.date], metaSeparator),
         secondary: "",
         bullets: toBullets(item.bullets),
       })),
@@ -140,8 +171,10 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
         titles.education,
         (profile.education || []).map((item) => ({
           id: item.id,
-          title: clean(item.school),
-          subtitle: joinParts([item.degree, item.field], " · "),
+          // 学历在前、学校在后：「硕士 公共管理，香港城市大学」
+          title: joinParts([item.degree, item.field], " "),
+          subtitle: clean(item.school),
+          separator: language === "zh" ? "，" : ", ",
           meta: dateRange(item.startDate, item.endDate, dash),
           secondary: clean(item.details),
           bullets: [],
@@ -156,7 +189,8 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
           id: item.id,
           title: clean(item.company),
           subtitle: clean(item.role),
-          meta: joinParts([item.location, dateRange(item.startDate, item.endDate, dash)], " · "),
+          separator: " | ",
+          meta: joinParts([item.location, dateRange(item.startDate, item.endDate, dash)], metaSeparator),
           secondary: "",
           bullets: toBullets(item.bullets),
         })),
@@ -169,7 +203,8 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
         (profile.projects || []).map((item) => ({
           id: item.id,
           title: clean(item.name),
-          subtitle: joinParts([item.role, item.stack], " · "),
+          subtitle: joinParts([item.role, item.stack], " | "),
+          separator: " | ",
           meta: dateRange(item.startDate, item.endDate, dash),
           secondary: "",
           bullets: toBullets(item.bullets),
@@ -179,12 +214,28 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
       seen.add(key);
       const skills = (profile.skills || []).map(clean).filter(Boolean);
       if (skills.length) {
-        sections.push({
-          key,
-          title: flowCV ? titles.skillsFlowCV : titles.skills,
-          kind: "paragraph",
-          text: skills.join(language === "zh" ? " · " : " · "),
-        });
+        const title = flowCV ? titles.skillsFlowCV : titles.skills;
+        // 「产品：需求分析、PRD 撰写…」这类分组写法按要点逐行展示；纯关键词用分隔符排成一段
+        const grouped = skills.some((skill) => /^[^：:]{1,12}[：:]/.test(skill) || skill.length > 24);
+        if (grouped) {
+          sections.push({
+            key,
+            title,
+            kind: "entries",
+            entries: [
+              {
+                id: "skills",
+                title: "",
+                subtitle: "",
+                meta: "",
+                secondary: "",
+                bullets: toBullets(skills.map((text, index) => ({ id: `skill_${index}`, text }))),
+              },
+            ],
+          });
+        } else {
+          sections.push({ key, title, kind: "paragraph", text: skills.join(" · ") });
+        }
       }
     } else if (key === "customSections") {
       seen.add(key);
@@ -195,5 +246,5 @@ export function buildResumeModel(profile, { dash = " – " } = {}) {
     }
   }
 
-  return { language, header, sections };
+  return { language, header, footer, sections };
 }

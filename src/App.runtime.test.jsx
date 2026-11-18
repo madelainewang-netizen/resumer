@@ -15,7 +15,8 @@ describe("App runtime modes", () => {
 
     render(<App runtime={{ demoMode: true, embedMode: true }} />);
 
-    expect(screen.getByText("陈雨桐")).toBeInTheDocument();
+    // 自动排版会在隐藏画布里测量多个档位，名字可能出现多次
+    expect(screen.getAllByText("陈雨桐").length).toBeGreaterThan(0);
 
     await act(async () => {
       await vi.runAllTimersAsync();

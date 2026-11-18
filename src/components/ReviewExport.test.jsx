@@ -9,6 +9,11 @@ describe("ReviewExport", () => {
     expect(source).not.toContain("<ResumePaper");
   });
 
+  it("surfaces layout checks: orphan lines and unused space", () => {
+    expect(source).toContain("pdfInfo.orphans");
+    expect(source).toContain("pdfInfo.remainingLines");
+  });
+
   it("downloads the same PDF blob that was previewed when nothing changed", () => {
     expect(source).toContain("latestPdf.current");
     expect(source).toContain("generateResumePdf(profile, compactLevel)");

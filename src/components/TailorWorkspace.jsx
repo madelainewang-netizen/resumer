@@ -29,7 +29,7 @@ import {
   restoreSummary,
 } from "../utils/condenseResume";
 import { profileSignature } from "../utils/profileSignature";
-import { COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resumeLayout";
+import { AUTO_LEVEL, COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resumeLayout";
 import { updateTailoredBullet } from "../utils/tailorProfile";
 import ResumePaper from "./ResumePaper";
 import { LoadingButton, SectionHeader, StatusPill } from "./ui";
@@ -60,7 +60,7 @@ export default function TailorWorkspace({
   const removedSkills = workspaceState.removedSkills || {};
   const removedCustomItems = workspaceState.removedCustomItems || {};
   const removedCustomSections = workspaceState.removedCustomSections || {};
-  const compactLevel = normalizeCompactLevel(workspaceState.compactLevel, 0);
+  const compactLevel = normalizeCompactLevel(workspaceState.compactLevel);
   const [condenseLoading, setCondenseLoading] = useState(false);
   const [condenseProgress, setCondenseProgress] = useState("");
   const setWorkspaceSlice = (key, fallback, value) =>
@@ -87,8 +87,8 @@ export default function TailorWorkspace({
   const setRemovedCustomSections = (value) =>
     setWorkspaceSlice("removedCustomSections", {}, value);
   const setCompactLevel = (value) =>
-    setWorkspaceSlice("compactLevel", 0, (current) =>
-      normalizeCompactLevel(typeof value === "function" ? value(current) : value, 0),
+    setWorkspaceSlice("compactLevel", AUTO_LEVEL, (current) =>
+      normalizeCompactLevel(typeof value === "function" ? value(current) : value),
     );
   const currentProfileSignature = profileSignature(profile);
   const isTailoredCurrent =
@@ -510,7 +510,7 @@ export default function TailorWorkspace({
                 <select
                   className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] outline-none"
                   value={compactLevel}
-                  onChange={(event) => setCompactLevel(Number(event.target.value))}
+                  onChange={(event) => setCompactLevel(event.target.value)}
                 >
                   {COMPACT_LEVELS.map((level) => (
                     <option key={level.value} value={level.value}>{level.label}</option>

@@ -38,3 +38,12 @@ describe("tailor rewrite merge", () => {
     expect(merged.experience[0].bullets[0].verificationRequired).toBe(true);
   });
 });
+
+describe("resume SOP skill", () => {
+  it("is loaded by every endpoint that writes or judges resume content", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const file of ["tailor-resume", "condense-resume", "explain-match", "evidence-coach"]) {
+      expect(readFileSync(`api/${file}.js`, "utf8")).toContain("RESUME_SOP");
+    }
+  });
+});

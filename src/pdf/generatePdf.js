@@ -1,12 +1,9 @@
-import { createElement } from "react";
+import { fitResumePdf } from "./fitResumePdf";
 
-/** 生成简历 PDF Blob。预览和下载共用这一个入口，保证"所见即所得"。 */
+/** 生成简历 PDF Blob（含自动排满一页与孤行处理）。预览和下载共用这一个入口。 */
 export async function generateResumePdf(profile, compactLevel) {
-  const [{ pdf }, { default: ResumeDocument }] = await Promise.all([
-    import("@react-pdf/renderer"),
-    import("./ResumeDocument"),
-  ]);
-  return pdf(createElement(ResumeDocument, { profile, compactLevel })).toBlob();
+  const { blob } = await fitResumePdf(profile, compactLevel);
+  return blob;
 }
 
 export function resumeFileName(profile) {

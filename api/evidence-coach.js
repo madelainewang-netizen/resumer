@@ -1,5 +1,6 @@
 import { apiError, requirePost, sendEvent, startSSE } from "./_lib/http.js";
 import { streamStructuredResponse, WRITING_RULES } from "./_lib/ai.js";
+import { RESUME_SOP } from "./_lib/skills/resumeSop.js";
 import {
   evidenceDraftJSONSchema,
   evidenceQuestionsJSONSchema,
@@ -48,6 +49,9 @@ export default async function handler(req, res) {
         sendEvent,
         temperature: 0.5,
         system: `${WRITING_RULES}
+
+写法参考这份《简历修改 SOP》：
+${RESUME_SOP}
 
 你是严格遵守事实边界的简历编辑。只根据用户回答生成一条经历草稿。
 规则：

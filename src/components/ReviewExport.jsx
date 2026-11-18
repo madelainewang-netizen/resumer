@@ -12,7 +12,7 @@ import {
 import { useResumerServices } from "../services/ResumerServicesContext";
 import { calculateMatchScore } from "../utils/matchScore";
 import { downloadBlob, generateResumePdf, resumeFileName } from "../pdf/generatePdf";
-import { COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resumeLayout";
+import { AUTO_LEVEL, COMPACT_LEVELS, getResumeLayout, normalizeCompactLevel } from "../utils/resumeLayout";
 import PdfPreview from "./PdfPreview";
 import { SectionHeader, StatusPill } from "./ui";
 
@@ -28,35 +28,39 @@ export default function ReviewExport({
 }) {
   const { explainMatch } = useResumerServices();
   const latestPdf = useRef(null);
-  const [localCompactLevel, setLocalCompactLevel] = useState(2);
-  const compactLevel = normalizeCompactLevel(
-    controlledCompactLevel ?? localCompactLevel,
-    2,
-  );
+  const [localCompactLevel, setLocalCompactLevel] = useState(AUTO_LEVEL);
+  const compactLevel = normalizeCompactLevel(controlledCompactLevel ?? localCompactLevel);
   const setCompactLevel = (value) => {
     const setter = setControlledCompactLevel ?? setLocalCompactLevel;
     setter((current) =>
-      normalizeCompactLevel(
-        typeof value === "function" ? value(current) : value,
-        2,
-      ),
+      normalizeCompactLevel(typeof value === "function" ? value(current) : value),
     );
   };
-  const [pageCount, setPageCount] = useState(1);
+  const [pdfInfo, setPdfInfo] = useState({ pages: 1, level: null, orphans: [], remainingLines: 0 });
+  const pageCount = pdfInfo.pages;
   const [exporting, setExporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [reviewProgress, setReviewProgress] = useState("");
   const score = useMemo(() => calculateMatchScore(profile, analysis), [profile, analysis]);
   const likelyOverflow = pageCount > 1;
-  const handlePdfReady = useCallback(({ blob, pages }) => {
+  const handlePdfReady = useCallback(({ blob, pages, level, orphans, remainingLines }) => {
     latestPdf.current = { blob, profile, compactLevel };
-    setPageCount(pages);
+    setPdfInfo({ pages, level, orphans, remainingLines });
   }, [profile, compactLevel]);
+  const appliedLabel = pdfInfo.level === null ? "" : getResumeLayout(pdfInfo.level).label;
 
   const warnings = [
     ...score.missingKeywords.slice(0, 3).map((keyword) => `缺少“${keyword}”相关证据`),
     ...(profile.basics.summary.length > 150 ? ["职业摘要较长，建议压缩到 2–3 行"] : []),
-    ...(likelyOverflow ? [`当前 PDF 共 ${pageCount} 页；如需单页，可调高紧凑度或精简内容`] : []),
+    ...(likelyOverflow
+      ? [`当前 PDF 共 ${pageCount} 页，最紧凑的版式也放不下；建议精简低相关的经历，一页简历更容易被读完`]
+      : []),
+    ...pdfInfo.orphans.map(
+      (orphan) => `“${orphan.label}”有一行只剩“${orphan.text}”，建议删减或补充几个字`,
+    ),
+    ...(!likelyOverflow && pdfInfo.remainingLines >= 4
+      ? [`页面底部还能再写约 ${pdfInfo.remainingLines} 行，可以补一条和岗位相关的经历，让页面排满`]
+      : []),
   ];
 
   const exportPDF = async () => {
@@ -229,13 +233,15 @@ export default function ReviewExport({
               <div>
                 <h2 className="text-xs font-semibold">PDF 实际效果</h2>
                 <p className="mt-0.5 text-[10px] text-neutral-400">
-                  {likelyOverflow ? `共 ${pageCount} 页` : "单页 A4 · 与下载文件一致"}
+                  {likelyOverflow
+                    ? `共 ${pageCount} 页`
+                    : `单页 A4${appliedLabel ? ` · ${compactLevel === AUTO_LEVEL ? "自动选用" : ""}${appliedLabel}版式` : ""} · 与下载文件一致`}
                 </p>
               </div>
               <select
                 className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] outline-none"
                 value={compactLevel}
-                onChange={(event) => setCompactLevel(Number(event.target.value))}
+                onChange={(event) => setCompactLevel(event.target.value)}
               >
                 {COMPACT_LEVELS.map((level) => (
                   <option key={level.value} value={level.value}>{level.label}</option>
