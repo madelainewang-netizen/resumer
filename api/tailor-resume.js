@@ -2,7 +2,13 @@ import { apiError, requirePost, sendEvent, startSSE } from "./_lib/http.js";
 import { streamStructuredResponse, WRITING_RULES } from "./_lib/ai.js";
 import { RESUME_SOP } from "./_lib/skills/resumeSop.js";
 import { JD_TAILORING_SKILL } from "./_lib/skills/jdTailoring.js";
-import { buildTailorInput, mergeTailorRewrite, tailorRewriteJSONSchema } from "./_lib/tailor.js";
+import {
+  bodyRedoJSONSchema,
+  buildTailorInput,
+  findTitleOnlyRewrites,
+  mergeTailorRewrite,
+  tailorRewriteJSONSchema,
+} from "./_lib/tailor.js";
 
 const SYSTEM = `你是一位资深的中文简历编辑，帮候选人针对目标岗位改写经历描述。你的任务是让真实经历被招聘方读懂、读到重点，而不是创造经历。
 
@@ -72,7 +78,37 @@ export default async function handler(req, res) {
 <candidate_resume>\n${JSON.stringify(input)}\n</candidate_resume>`,
     });
     const rewrite = events[0];
+
+    // 自动检查：标记为改写、但正文没动（只换了小标题）的条目，退回让模型重写正文一次
+    const titleOnly = findTitleOnlyRewrites(input, rewrite);
+    if (titleOnly.length) {
+      sendEvent(res, { type: "progress", message: `有 ${titleOnly.length} 条只改了小标题，正在重写正文` });
+      const originals = new Map(input.experiences.flatMap((group) => group.bullets.map((bullet) => [bullet.id, bullet.text])));
+      const redoEvents = [];
+      try {
+        await streamStructuredResponse({
+          res,
+          schemaName: "body_rewrite",
+          schema: bodyRedoJSONSchema,
+          sendEvent: (_res, event) => event.type === "result" && redoEvents.push(event.data),
+          temperature: 0.7,
+          system: SYSTEM,
+          input: `<jd_analysis>\n${JSON.stringify(analysis)}\n</jd_analysis>
+<focus>${JSON.stringify(rewrite.focus || [])}</focus>
+<task>下面这些条目上一轮只换了小标题，正文和原文一样，不合格。请按《岗位定制改写 Skill》第三步重写正文：至少调整语序、把与 focus 对应的事实放到正文开头，并换用目标岗位的说法；事实不能增加。小标题可以沿用上一轮的。只返回这些条目，action 一律为 rewrite。</task>
+<bullets>${JSON.stringify(
+            titleOnly.map((bullet) => ({ id: bullet.id, original: originals.get(bullet.id), previousAttempt: bullet.text })),
+          )}</bullets>`,
+        });
+        const redone = new Map((redoEvents[0]?.bullets || []).map((bullet) => [bullet.id, bullet]));
+        rewrite.bullets = rewrite.bullets.map((bullet) => redone.get(bullet.id) || bullet);
+      } catch (error) {
+        console.warn("[tailor-body-redo-failed]", error.message);
+      }
+    }
+
     console.info("[tailor-actions]", {
+      titleOnlyRetried: titleOnly.length,
       rewrite: (rewrite?.bullets || []).filter((bullet) => bullet.action === "rewrite").length,
       keep: (rewrite?.bullets || []).filter((bullet) => bullet.action === "keep").length,
       gaps: (rewrite?.gaps || []).length,

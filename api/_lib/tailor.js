@@ -152,3 +152,28 @@ export function findNewNumbers(original, rewritten) {
   const before = numbers(original);
   return [...numbers(rewritten)].filter((value) => !before.has(value));
 }
+
+/** 小标题之后的正文部分。 */
+export function bulletBody(text) {
+  const value = String(text || "");
+  const match = value.match(/^[^：:]{2,18}[：:]\s*(.+)$/s);
+  return match ? match[1] : value;
+}
+
+/** 标记为 rewrite、但正文和原文一样（只换了小标题）的条目。 */
+export function findTitleOnlyRewrites(input, rewrite) {
+  const originals = new Map(input.experiences.flatMap((group) => group.bullets.map((bullet) => [bullet.id, bullet.text])));
+  return (rewrite?.bullets || []).filter(
+    (bullet) =>
+      bullet.action === "rewrite" &&
+      originals.has(bullet.id) &&
+      isSameWording(bulletBody(originals.get(bullet.id)), bulletBody(bullet.text)),
+  );
+}
+
+export const bodyRedoJSONSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["bullets"],
+  properties: { bullets: tailorRewriteJSONSchema.properties.bullets },
+};

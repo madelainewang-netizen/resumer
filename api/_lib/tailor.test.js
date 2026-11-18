@@ -97,3 +97,29 @@ describe("JD tailoring skill", () => {
     expect(merged.tailorOverall).toBe("按产品岗改写");
   });
 });
+
+import { bulletBody, findTitleOnlyRewrites } from "./tailor";
+
+describe("title-only rewrite check", () => {
+  const input = { experiences: [{ bullets: [{ id: "a", text: "渠道与 UGC 分析：用 SQL 将 60+ 个 UTM 来源归为 6 类入口" }] }] };
+
+  it("extracts the body after the lead-in title", () => {
+    expect(bulletBody("小标题：正文内容")).toBe("正文内容");
+  });
+
+  it("flags rewrites that only changed the title", () => {
+    const flagged = findTitleOnlyRewrites(input, {
+      bullets: [{ id: "a", action: "rewrite", text: "数据驱动增长分析：用SQL将60+个UTM来源归为6类入口" }],
+    });
+    expect(flagged.map((bullet) => bullet.id)).toEqual(["a"]);
+  });
+
+  it("does not flag real body rewrites or keeps", () => {
+    expect(
+      findTitleOnlyRewrites(input, {
+        bullets: [{ id: "a", action: "rewrite", text: "增长数据分析：把 60+ 个 UTM 来源用 SQL 归为 6 类入口，对比各入口表现" }],
+      }),
+    ).toEqual([]);
+    expect(findTitleOnlyRewrites(input, { bullets: [{ id: "a", action: "keep", text: "x" }] })).toEqual([]);
+  });
+});
