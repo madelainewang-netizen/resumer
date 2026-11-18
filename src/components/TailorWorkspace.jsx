@@ -902,7 +902,7 @@ function EditableItem({
                   onKeep={() => onKeepOriginal(recommendation)}
                 />
               ) : null}
-              {bullet.originalText ? (
+              {bullet.originalText && bullet.originalText !== bullet.text ? (
                 <div className="mb-3">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
                     原文
@@ -912,11 +912,18 @@ function EditableItem({
                   </p>
                 </div>
               ) : null}
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-500">
-                优化建议
-              </p>
+              <div className="mb-1 flex items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-500">
+                  {bullet.originalText && bullet.originalText === bullet.text ? "保持原文" : "优化建议"}
+                </p>
+                {bullet.verificationRequired ? <StatusPill tone="warning">需核实</StatusPill> : null}
+              </div>
+              {bullet.tailorReason ? (
+                <p className="mb-2 text-[11px] leading-5 text-neutral-500">{bullet.tailorReason}</p>
+              ) : null}
               <textarea
-                className="field min-h-[86px] resize-y bg-white text-xs leading-5"
+                className="field min-h-[64px] resize-y bg-white text-xs leading-5"
+                style={{ fieldSizing: "content" }}
                 value={bullet.text}
                 onChange={(event) =>
                   onUpdate(
@@ -928,6 +935,7 @@ function EditableItem({
                   )
                 }
               />
+              {bullet.originalText === bullet.text ? null : (
               <div className="mt-2 flex items-center justify-between">
                 <button
                   className="ghost-button"
@@ -955,6 +963,7 @@ function EditableItem({
                   </button>
                 )}
               </div>
+              )}
             </div>
           )})}
           {removedForItem.map(([key, removed]) => (

@@ -24,6 +24,29 @@ describe("tailor rewrite merge", () => {
     expect(merged.basics.summary).toBe(sampleProfile.basics.summary);
   });
 
+  it("treats whitespace/punctuation-only edits as no change", () => {
+    const original = "流程拆解与AI提效：Clipping Report需逐条查原帖，单份约2小时";
+    const profile = structuredClone(sampleProfile);
+    profile.experience[0].bullets[0].text = original;
+    const merged = mergeTailorRewrite(profile, {
+      summary: "",
+      bullets: [{ id: firstBullet.id, action: "rewrite", text: "流程拆解与 AI 提效：Clipping Report 需逐条查原帖，单份约 2 小时", reason: "", verificationRequired: false }],
+    });
+    expect(merged.experience[0].bullets[0].text).toBe(original);
+    expect(merged.experience[0].bullets[0].verificationRequired).toBe(false);
+  });
+
+  it("keeps the original text when the model decides to keep, and passes the reason through", () => {
+    const merged = mergeTailorRewrite(sampleProfile, {
+      summary: "",
+      bullets: [{ id: firstBullet.id, action: "keep", text: "随便改的", reason: "已直接体现需求规划能力", verificationRequired: false }],
+    });
+    expect(merged.experience[0].bullets[0]).toMatchObject({
+      text: firstBullet.text,
+      tailorReason: "已直接体现需求规划能力",
+    });
+  });
+
   it("keeps bullets the model skipped unchanged", () => {
     const merged = mergeTailorRewrite(sampleProfile, { summary: "", bullets: [] });
     expect(merged.experience[0].bullets[0].text).toBe(firstBullet.text);

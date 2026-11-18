@@ -17,10 +17,12 @@ export const tailorRewriteJSONSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "text", "verificationRequired"],
+        required: ["id", "action", "text", "reason", "verificationRequired"],
         properties: {
           id: { type: "string" },
+          action: { type: "string", enum: ["rewrite", "keep"] },
           text: { type: "string" },
+          reason: { type: "string" },
           verificationRequired: { type: "boolean" },
         },
       },
@@ -67,7 +69,14 @@ export function buildTailorInput(profile) {
   };
 }
 
-/** 把模型返回的改写合并回完整档案，输出与旧接口完全相同的结构。 */
+/** 去掉空格和标点后比较：只改了空格、标点的不算修改。 */
+export function isSameWording(a, b) {
+  const strip = (value) =>
+    String(value || "").replace(/[\s，。、；：！？,.;:!?“”"'‘’（）()【】\[\]—–-]/g, "").toLowerCase();
+  return strip(a) === strip(b);
+}
+
+/** 把模型返回的改写合并回完整档案，输出与旧接口相同的结构，并附上每条的修改理由。 */
 export function mergeTailorRewrite(profile, rewrite) {
   const byId = new Map(
     (rewrite?.bullets || [])
@@ -77,14 +86,19 @@ export function mergeTailorRewrite(profile, rewrite) {
   const mapBullets = (bullets = []) =>
     bullets.map((bullet) => {
       const next = byId.get(bullet.id);
-      const text = next ? next.text.trim() : bullet.text;
+      const proposed = next ? next.text.trim() : bullet.text;
+      // 模型说保留、或者只动了空格标点：一律视为未修改，原文原样保留
+      const unchanged = !next || next.action === "keep" || isSameWording(bullet.text, proposed);
+      const text = unchanged ? bullet.text : proposed;
       return {
         ...bullet,
         originalText: bullet.text,
         text,
+        tailorReason: String(next?.reason || "").trim(),
         // 模型自己标记需要核实，或者改写里出现了原文没有的数字，都要求用户确认
         verificationRequired:
-          Boolean(next?.verificationRequired) || findNewNumbers(bullet.text, text).length > 0,
+          !unchanged &&
+          (Boolean(next?.verificationRequired) || findNewNumbers(bullet.text, text).length > 0),
       };
     });
 
