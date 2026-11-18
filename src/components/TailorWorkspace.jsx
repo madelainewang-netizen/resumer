@@ -529,6 +529,13 @@ export default function TailorWorkspace({
   );
 }
 
+// Safari 不支持 field-sizing，用脚本让编辑框随内容变高，避免文字被截断
+function autoGrow(node) {
+  if (!node) return;
+  node.style.height = "auto";
+  node.style.height = `${node.scrollHeight + 2}px`;
+}
+
 function omitKey(object, key) {
   const next = { ...object };
   delete next[key];
@@ -924,6 +931,8 @@ function EditableItem({
               <textarea
                 className="field min-h-[64px] resize-y bg-white text-xs leading-5"
                 style={{ fieldSizing: "content" }}
+                ref={autoGrow}
+                onInput={(event) => autoGrow(event.currentTarget)}
                 value={bullet.text}
                 onChange={(event) =>
                   onUpdate(
