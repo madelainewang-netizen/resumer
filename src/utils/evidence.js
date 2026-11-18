@@ -54,7 +54,7 @@ function appendToExisting(profile, targetId, bullets) {
   };
 }
 
-export function addEvidenceToProfile(profile, draft) {
+function addEvidenceRaw(profile, draft) {
   const bullets0 = createBullets(draft.bullets);
   if (draft.targetItemId && listEvidenceTargets(profile).some((item) => item.id === draft.targetItemId)) {
     return appendToExisting(profile, draft.targetItemId, bullets0);
@@ -179,4 +179,59 @@ export function mergeAddedEvidence(tailored, before, after) {
     projects: mergeItems(tailored.projects, before.projects, after.projects),
     customSections: sections,
   };
+}
+
+const sameText = (a, b) => cleanResumeText(String(a || "")).replace(/\s/g, "").toLowerCase() ===
+  cleanResumeText(String(b || "")).replace(/\s/g, "").toLowerCase();
+const blankOrSame = (a, b) => !String(a || "").trim() || !String(b || "").trim() || sameText(a, b);
+
+function mergeInto(target, duplicate) {
+  const bullets = [...target.bullets];
+  for (const bullet of duplicate.bullets || []) {
+    if (!bullets.some((existing) => sameText(existing.text, bullet.text))) bullets.push(bullet);
+  }
+  const filled = { ...target };
+  for (const [key, value] of Object.entries(duplicate)) {
+    if (key !== "bullets" && key !== "id" && !String(filled[key] || "").trim() && value) filled[key] = value;
+  }
+  return { ...filled, bullets };
+}
+
+function dedupe(items, isSame) {
+  const result = [];
+  for (const item of items || []) {
+    const index = result.findIndex((existing) => isSame(existing, item));
+    if (index === -1) result.push(item);
+    else result[index] = mergeInto(result[index], item);
+  }
+  return result;
+}
+
+/**
+ * 合并重复经历：同一家公司 + 同一职位（或一方没填）+ 同一时间（或一方没填）视为同一段经历，
+ * 条目去重后合到前面那段里。项目按名称、其他经历按标题判断。
+ */
+export function mergeDuplicateEntries(profile) {
+  const sameExperience = (a, b) =>
+    String(a.company || "").trim() &&
+    sameText(a.company, b.company) &&
+    blankOrSame(a.role, b.role) &&
+    blankOrSame(a.startDate, b.startDate) &&
+    blankOrSame(a.endDate, b.endDate);
+  const sameProject = (a, b) => String(a.name || "").trim() && sameText(a.name, b.name);
+  const sameCustom = (a, b) =>
+    String(a.title || "").trim() && sameText(a.title, b.title) && blankOrSame(a.subtitle, b.subtitle);
+  return {
+    ...profile,
+    experience: dedupe(profile.experience, sameExperience),
+    projects: dedupe(profile.projects, sameProject),
+    customSections: (profile.customSections || []).map((section) => ({
+      ...section,
+      items: dedupe(section.items, sameCustom),
+    })),
+  };
+}
+
+export function addEvidenceToProfile(profile, draft) {
+  return mergeDuplicateEntries(addEvidenceRaw(profile, draft));
 }

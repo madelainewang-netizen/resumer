@@ -124,3 +124,36 @@ describe("adding evidence to an existing entry", () => {
     expect(merged.experience[0].bullets[1].originalText).toBe("新补充的一条");
   });
 });
+
+import { mergeDuplicateEntries } from "./evidence";
+
+describe("mergeDuplicateEntries", () => {
+  const profile = {
+    sectionOrder: ["experience"],
+    projects: [],
+    customSections: [],
+    experience: [
+      { id: "a", company: "SMCP Asia Limited（SANDRO / Maje）", role: "市场营销实习生", startDate: "2026.04", endDate: "2026.07", location: "香港", bullets: [{ id: "1", text: "AI 提效：原有条目" }] },
+      { id: "b", company: "美团", role: "用户增长实习生", startDate: "2023.12", endDate: "2024.02", location: "上海", bullets: [{ id: "2", text: "美团条目" }] },
+      { id: "c", company: "SMCP Asia Limited（SANDRO / Maje）", role: "市场营销实习生", startDate: "2026.04", endDate: "2026.07", location: "香港", bullets: [{ id: "3", text: "AI 流程搭建与人工复核：补充的条目" }, { id: "4", text: "AI 提效：原有条目" }] },
+    ],
+  };
+
+  it("merges a duplicated internship into the original one and drops repeated bullets", () => {
+    const merged = mergeDuplicateEntries(profile);
+    expect(merged.experience.map((item) => item.id)).toEqual(["a", "b"]);
+    expect(merged.experience[0].bullets.map((bullet) => bullet.text)).toEqual(["AI 提效：原有条目", "AI 流程搭建与人工复核：补充的条目"]);
+  });
+
+  it("treats an entry with blank role/dates at the same company as the same internship", () => {
+    const loose = structuredClone(profile);
+    loose.experience[2] = { ...loose.experience[2], role: "", startDate: "", endDate: "" };
+    expect(mergeDuplicateEntries(loose).experience).toHaveLength(2);
+  });
+
+  it("keeps two different roles at the same company apart", () => {
+    const twoRoles = structuredClone(profile);
+    twoRoles.experience[2] = { ...twoRoles.experience[2], role: "PR 实习生", startDate: "2025.01", endDate: "2025.03" };
+    expect(mergeDuplicateEntries(twoRoles).experience).toHaveLength(3);
+  });
+});

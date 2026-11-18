@@ -76,3 +76,25 @@ describe("resumer storage", () => {
     expect(loadProfile()).toEqual(emptyProfile);
   });
 });
+
+import { profileSignature } from "../utils/profileSignature";
+
+describe("duplicate experience cleanup on load", () => {
+  it("merges duplicates and keeps the tailored result current", async () => {
+    const { loadProfile, loadSession, normalizeProfile } = await import("./resumerStorage");
+    const exp = (id, bullets) => ({ id, company: "SMCP", role: "实习生", startDate: "2026.04", endDate: "2026.07", location: "香港", bullets });
+    const raw = {
+      ...normalizeProfile({}),
+      experience: [exp("a", [{ id: "1", text: "原有" }]), exp("c", [{ id: "2", text: "补充" }])],
+    };
+    localStorage.setItem("resumer.profile.v1", JSON.stringify(raw));
+    const unmergedSignature = profileSignature(normalizeProfile(raw, { mergeDuplicates: false }));
+    localStorage.setItem("resumer.session.v1", JSON.stringify({ tailoredProfile: raw, tailoredSourceSignature: unmergedSignature }));
+
+    const profile = loadProfile();
+    const session = loadSession();
+    expect(profile.experience).toHaveLength(1);
+    expect(session.tailoredProfile.experience).toHaveLength(1);
+    expect(session.tailoredSourceSignature).toBe(profileSignature(profile));
+  });
+});
