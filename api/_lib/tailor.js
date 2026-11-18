@@ -9,9 +9,22 @@
 export const tailorRewriteJSONSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["summary", "bullets"],
+  required: ["summary", "bullets", "gaps"],
   properties: {
     summary: { type: "string" },
+    gaps: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requirement", "reason", "evidenceHint"],
+        properties: {
+          requirement: { type: "string" },
+          reason: { type: "string" },
+          evidenceHint: { type: "string" },
+        },
+      },
+    },
     bullets: {
       type: "array",
       items: {
@@ -102,8 +115,18 @@ export function mergeTailorRewrite(profile, rewrite) {
       };
     });
 
+  const gaps = (rewrite?.gaps || [])
+    .filter((gap) => String(gap?.requirement || "").trim())
+    .slice(0, 5)
+    .map((gap) => ({
+      requirement: gap.requirement.trim(),
+      reason: String(gap.reason || "").trim(),
+      evidenceHint: String(gap.evidenceHint || "").trim(),
+    }));
+
   return {
     ...profile,
+    tailorGaps: gaps,
     basics: {
       ...profile.basics,
       summary: String(rewrite?.summary || "").trim() || profile.basics?.summary || "",

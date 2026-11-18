@@ -47,6 +47,17 @@ describe("tailor rewrite merge", () => {
     });
   });
 
+  it("passes JD gaps through so the user can add missing experience", () => {
+    const merged = mergeTailorRewrite(sampleProfile, {
+      summary: "",
+      bullets: [],
+      gaps: [{ requirement: "A/B 测试经验", reason: "简历未提及实验设计", evidenceHint: "课程或实习中的实验" }, { requirement: " ", reason: "", evidenceHint: "" }],
+    });
+    expect(merged.tailorGaps).toEqual([
+      { requirement: "A/B 测试经验", reason: "简历未提及实验设计", evidenceHint: "课程或实习中的实验" },
+    ]);
+  });
+
   it("keeps bullets the model skipped unchanged", () => {
     const merged = mergeTailorRewrite(sampleProfile, { summary: "", bullets: [] });
     expect(merged.experience[0].bullets[0].text).toBe(firstBullet.text);

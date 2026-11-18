@@ -232,6 +232,7 @@ export default function App({ runtime = {} }) {
     content = (
       <TailorWorkspace
         profile={profile}
+        setProfile={setProfile}
         analysis={analysis}
         tailoredProfile={tailoredProfile}
         setTailoredProfile={setTailoredProfile}

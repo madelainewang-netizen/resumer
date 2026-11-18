@@ -5,6 +5,7 @@ import {
   ChevronUp,
   RotateCcw,
   Scissors,
+  MessageSquarePlus,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -33,9 +34,13 @@ import { AUTO_LEVEL, COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resu
 import { updateTailoredBullet } from "../utils/tailorProfile";
 import ResumePaper from "./ResumePaper";
 import { LoadingButton, SectionHeader, StatusPill } from "./ui";
+import EvidenceCoach from "./EvidenceCoach";
+import { addEvidenceToProfile } from "../utils/evidence";
+import { evaluateRequirementEvidence } from "../utils/matchScore";
 
 export default function TailorWorkspace({
   profile,
+  setProfile,
   analysis,
   tailoredProfile,
   setTailoredProfile,
@@ -95,6 +100,51 @@ export default function TailorWorkspace({
     Boolean(tailoredProfile) &&
     tailoredSourceSignature === currentProfileSignature;
   const displayProfile = isTailoredCurrent ? tailoredProfile : profile;
+  const [coachTarget, setCoachTarget] = useState(null);
+  // 岗位要求里简历还没写到的经历：优先用 AI 改写时给出的缺口，旧结果没有时按规则检查核心要求
+  const gaps = useMemo(() => {
+    if (!isTailoredCurrent) return [];
+    if (Array.isArray(tailoredProfile?.tailorGaps)) return tailoredProfile.tailorGaps;
+    return (analysis?.coreRequirements || [])
+      .filter((item) => evaluateRequirementEvidence(profile, item.requirement, analysis) !== "strong")
+      .slice(0, 5)
+      .map((item) => ({ requirement: item.requirement, reason: "", evidenceHint: item.evidenceHint }));
+  }, [analysis, isTailoredCurrent, profile, tailoredProfile]);
+
+  // 补充的新经历同时写入简历档案和当前定制结果，不需要重新生成
+  const addEvidence = (draft) => {
+    const nextProfile = addEvidenceToProfile(profile, draft);
+    const added = {
+      experience: nextProfile.experience.slice(profile.experience.length),
+      projects: nextProfile.projects.slice(profile.projects.length),
+      customSections: nextProfile.customSections,
+    };
+    setProfile(nextProfile);
+    setTailoredProfile((current) => {
+      if (!current) return current;
+      const markOriginal = (item) => ({
+        ...item,
+        bullets: item.bullets.map((bullet) => ({ ...bullet, originalText: bullet.text })),
+      });
+      return {
+        ...current,
+        sectionOrder: nextProfile.sectionOrder,
+        experience: [...current.experience, ...added.experience.map(markOriginal)],
+        projects: [...current.projects, ...added.projects.map(markOriginal)],
+        customSections: added.customSections.map((section) => {
+          const existing = current.customSections.find((item) => item.id === section.id);
+          if (!existing) return { ...section, items: section.items.map(markOriginal) };
+          const known = new Set(existing.items.map((item) => item.id));
+          return {
+            ...existing,
+            items: [...existing.items, ...section.items.filter((item) => !known.has(item.id)).map(markOriginal)],
+          };
+        }),
+        tailorGaps: (current.tailorGaps || []).filter((gap) => gap.requirement !== coachTarget?.requirement),
+      };
+    });
+    setTailoredSourceSignature(profileSignature(nextProfile));
+  };
 
   const generate = async () => {
     if (!analysis) {
@@ -399,6 +449,16 @@ export default function TailorWorkspace({
                   </p>
                 </div>
 
+                {isTailoredCurrent && changedBullets.length === 0 ? (
+                  <p className="mb-4 rounded-xl bg-neutral-50 p-3.5 text-[11px] leading-5 text-neutral-500">
+                    现有经历已经写得贴合这个岗位，AI 没有需要改的地方。想让简历更有竞争力，就要补上下面这些岗位看重、但简历里还没写到的经历。
+                  </p>
+                ) : null}
+
+                {gaps.length ? (
+                  <GapPanel gaps={gaps} onAdd={setCoachTarget} />
+                ) : null}
+
                 {condensePlan ? (
                   <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
                     <div className="flex items-center gap-2 text-xs font-semibold">
@@ -525,6 +585,19 @@ export default function TailorWorkspace({
           </div>
         )}
       </div>
+      <EvidenceCoach
+        open={Boolean(coachTarget)}
+        onClose={() => setCoachTarget(null)}
+        requirement={coachTarget?.requirement || ""}
+        evidenceHint={[coachTarget?.reason, coachTarget?.evidenceHint].filter(Boolean).join("；")}
+        analysis={analysis}
+        profile={profile}
+        onAddEvidence={(draft) => {
+          addEvidence(draft);
+          notify("已加入简历", "新经历已写进简历档案和右侧预览。");
+        }}
+        notify={notify}
+      />
     </div>
   );
 }
@@ -534,6 +607,37 @@ function autoGrow(node) {
   if (!node) return;
   node.style.height = "auto";
   node.style.height = `${node.scrollHeight + 2}px`;
+}
+
+function GapPanel({ gaps, onAdd }) {
+  return (
+    <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3.5">
+      <div className="flex items-center gap-2 text-xs font-semibold text-blue-900">
+        <MessageSquarePlus size={14} />
+        岗位看重、简历里还没写到的经历
+      </div>
+      <p className="mt-1 text-[11px] leading-5 text-blue-800/80">
+        AI 不会替你编这些内容。点"补充经历"，回答几个问题，它会根据你的回答写成新的一条经历。
+      </p>
+      <div className="mt-3 space-y-2">
+        {gaps.map((gap) => (
+          <div key={gap.requirement} className="flex items-start justify-between gap-3 rounded-lg bg-white p-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-neutral-800">{gap.requirement}</p>
+              {gap.reason ? <p className="mt-1 text-[11px] leading-5 text-neutral-500">{gap.reason}</p> : null}
+              {gap.evidenceHint ? (
+                <p className="mt-0.5 text-[11px] leading-5 text-neutral-400">可以从这些经历里找：{gap.evidenceHint}</p>
+              ) : null}
+            </div>
+            <button className="secondary-button shrink-0" onClick={() => onAdd(gap)}>
+              <MessageSquarePlus size={13} />
+              补充经历
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function omitKey(object, key) {
