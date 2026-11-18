@@ -452,6 +452,20 @@ export default function TailorWorkspace({
                   </div>
                 ) : null}
 
+                {isTailoredCurrent && tailoredProfile?.tailorToConfirm?.length ? (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-white p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
+                      <ShieldCheck size={14} />
+                      需要你确认
+                    </div>
+                    <ul className="mt-2 space-y-1.5">
+                      {tailoredProfile.tailorToConfirm.map((item) => (
+                        <li key={item} className="text-[11px] leading-5 text-neutral-600">· {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 {isTailoredCurrent && changedBullets.length === 0 ? (
                   <p className="mb-4 rounded-xl bg-neutral-50 p-3.5 text-[11px] leading-5 text-neutral-500">
                     现有经历已经写得贴合这个岗位，AI 没有需要改的地方。想让简历更有竞争力，就要补上下面这些岗位看重、但简历里还没写到的经历。

@@ -16,6 +16,7 @@ export const profileSchema = z.object({
     .optional(),
   tailorFocus: z.array(z.string()).optional(),
   tailorOverall: z.string().optional(),
+  tailorToConfirm: z.array(z.string()).optional(),
   source: z
     .object({
       mode: z.enum(["manual", "upload"]),

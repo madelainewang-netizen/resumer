@@ -11,8 +11,9 @@ import { cleanResumeText } from "../../src/utils/cleanText.js";
 export const tailorRewriteJSONSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["focus", "overall", "summary", "bullets", "gaps"],
+  required: ["focus", "overall", "summary", "bullets", "gaps", "toConfirm"],
   properties: {
+    toConfirm: { type: "array", items: { type: "string" } },
     focus: { type: "array", items: { type: "string" } },
     overall: { type: "string" },
     summary: { type: "string" },
@@ -133,6 +134,7 @@ export function mergeTailorRewrite(profile, rewrite) {
     tailorGaps: gaps,
     tailorFocus: (rewrite?.focus || []).map((item) => String(item).trim()).filter(Boolean).slice(0, 5),
     tailorOverall: cleanResumeText(String(rewrite?.overall || "")),
+    tailorToConfirm: (rewrite?.toConfirm || []).map((item) => cleanResumeText(String(item))).filter(Boolean).slice(0, 8),
     basics: {
       ...profile.basics,
       summary: cleanResumeText(String(rewrite?.summary || "")) || profile.basics?.summary || "",

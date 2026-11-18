@@ -123,3 +123,10 @@ describe("title-only rewrite check", () => {
     expect(findTitleOnlyRewrites(input, { bullets: [{ id: "a", action: "keep", text: "x" }] })).toEqual([]);
   });
 });
+
+describe("to-confirm list", () => {
+  it("passes questions the user must confirm through to the UI", () => {
+    const merged = mergeTailorRewrite(sampleProfile, { summary: "", bullets: [], gaps: [], toConfirm: ["资源库是你独立搭建的吗？", ""] });
+    expect(merged.tailorToConfirm).toEqual(["资源库是你独立搭建的吗？"]);
+  });
+});
