@@ -37,7 +37,6 @@ import { LoadingButton, SectionHeader, StatusPill } from "./ui";
 import EvidenceCoach from "./EvidenceCoach";
 import { addEvidenceToProfile, mergeAddedEvidence } from "../utils/evidence";
 import { evaluateRequirementEvidence } from "../utils/matchScore";
-import { entryLabel, findEntry, removeEntry, restoreEntry } from "../utils/entries";
 
 export default function TailorWorkspace({
   profile,
@@ -102,6 +101,14 @@ export default function TailorWorkspace({
     tailoredSourceSignature === currentProfileSignature;
   const displayProfile = isTailoredCurrent ? tailoredProfile : profile;
   const [coachTarget, setCoachTarget] = useState(null);
+  // AI 建议从这版删掉的经历：entryId → 理由，显示在对应经历卡片上
+  const removalAdvice = useMemo(
+    () =>
+      Object.fromEntries(
+        (isTailoredCurrent ? tailoredProfile?.tailorRemovals || [] : []).map((advice) => [advice.entryId, advice.reason]),
+      ),
+    [isTailoredCurrent, tailoredProfile],
+  );
   // 岗位要求里简历还没写到的经历：优先用 AI 改写时给出的缺口，旧结果没有时按规则检查核心要求
   const gaps = useMemo(() => {
     if (!isTailoredCurrent) return [];
@@ -469,9 +476,7 @@ export default function TailorWorkspace({
 
                 {isTailoredCurrent ? (
                   <EntryPanel
-                    tailoredProfile={tailoredProfile}
-                    onRemove={(entryId) => setTailoredProfile((current) => removeEntry(current, entryId))}
-                    onRestore={(entryId) => setTailoredProfile((current) => restoreEntry(current, entryId))}
+                    suggestionCount={Object.keys(removalAdvice).length}
                     onAddNew={() =>
                       setCoachTarget({
                         requirement: "补充一段简历里还没有的新经历",
@@ -540,7 +545,8 @@ export default function TailorWorkspace({
                   condenseApplied={condenseApplied}
                   removedBullets={removedBullets}
                   removedItems={removedItems}
-                  allowItemRemoval={Boolean(condensePlan)}
+                  allowItemRemoval
+                  removalAdvice={removalAdvice}
                   onAccept={acceptBullet}
                   onUpdate={updateBullet}
                   onApplyCondense={applyCondense}
@@ -558,7 +564,8 @@ export default function TailorWorkspace({
                   condenseApplied={condenseApplied}
                   removedBullets={removedBullets}
                   removedItems={removedItems}
-                  allowItemRemoval={Boolean(condensePlan)}
+                  allowItemRemoval
+                  removalAdvice={removalAdvice}
                   onAccept={acceptBullet}
                   onUpdate={updateBullet}
                   onApplyCondense={applyCondense}
@@ -573,7 +580,8 @@ export default function TailorWorkspace({
                   accepted={accepted}
                   removedItems={removedCustomItems}
                   removedSections={removedCustomSections}
-                  allowRemoval={Boolean(condensePlan)}
+                  allowRemoval
+                  removalAdvice={removalAdvice}
                   onAccept={acceptBullet}
                   onUpdate={updateBullet}
                   onRemoveItem={deleteCustomItem}
@@ -643,53 +651,21 @@ function autoGrow(node) {
   node.style.height = `${node.scrollHeight + 2}px`;
 }
 
-function EntryPanel({ tailoredProfile, onRemove, onRestore, onAddNew }) {
-  const removed = tailoredProfile?.tailorRemoved || [];
-  const suggestions = (tailoredProfile?.tailorRemovals || [])
-    .map((advice) => ({ ...advice, found: findEntry(tailoredProfile, advice.entryId) }))
-    .filter((advice) => advice.found);
+function EntryPanel({ suggestionCount, onAddNew }) {
   return (
-    <div className="mb-4 rounded-xl border border-neutral-200 p-3.5">
-      <div className="flex items-center justify-between gap-2">
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-neutral-200 p-3.5">
+      <div className="min-w-0">
         <p className="text-xs font-semibold">经历取舍</p>
-        <button className="ghost-button" onClick={onAddNew}>
-          <MessageSquarePlus size={13} />
-          添加一段新经历
-        </button>
-      </div>
-      {suggestions.length ? (
-        <div className="mt-2 space-y-2">
-          {suggestions.map((advice) => (
-            <div key={advice.entryId} className="flex items-start justify-between gap-3 rounded-lg bg-neutral-50 p-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-neutral-800">建议删掉：{entryLabel(advice.found.item)}</p>
-                {advice.reason ? <p className="mt-1 text-[11px] leading-5 text-neutral-500">{advice.reason}</p> : null}
-              </div>
-              <button className="secondary-button shrink-0" onClick={() => onRemove(advice.entryId)}>
-                从这版移除
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-1.5 text-[11px] leading-5 text-neutral-500">
-          AI 认为现有经历都和这个岗位相关，没有建议删除的。
+        <p className="mt-1 text-[11px] leading-5 text-neutral-500">
+          {suggestionCount
+            ? `AI 建议从这版删掉 ${suggestionCount} 段经历，已在下方对应经历上用红色标出，删不删由你决定。`
+            : "AI 认为现有经历都和这个岗位相关。任何一段都可以在下方点\"删除整段\"自己删掉。"}
         </p>
-      )}
-      {removed.length ? (
-        <div className="mt-3 border-t border-neutral-100 pt-2.5">
-          <p className="text-[11px] text-neutral-400">这版简历里已移除（基础资料里仍保留）：</p>
-          {removed.map((record) => (
-            <div key={record.item.id} className="mt-1.5 flex items-center justify-between gap-3">
-              <span className="text-[11px] text-neutral-500 line-through">{entryLabel(record.item)}</span>
-              <button className="ghost-button" onClick={() => onRestore(record.item.id)}>
-                <RotateCcw size={12} />
-                恢复
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      </div>
+      <button className="secondary-button shrink-0" onClick={onAddNew}>
+        <MessageSquarePlus size={13} />
+        添加一段新经历
+      </button>
     </div>
   );
 }
@@ -861,6 +837,7 @@ function CustomSectionsControl({
   removedItems,
   removedSections,
   allowRemoval,
+  removalAdvice = {},
   onAccept,
   onUpdate,
   onRemoveItem,
@@ -912,6 +889,7 @@ function CustomSectionsControl({
                     condenseApplied={{}}
                     removedBullets={{}}
                     allowItemRemoval={allowRemoval}
+                    removalReason={removalAdvice[item.id]}
                     onAccept={onAccept}
                     onUpdate={onUpdate}
                     onApplyCondense={() => {}}
@@ -979,6 +957,7 @@ function EditableSection({
   removedBullets,
   removedItems,
   allowItemRemoval,
+  removalAdvice = {},
   onAccept,
   onUpdate,
   onApplyCondense,
@@ -1008,6 +987,7 @@ function EditableSection({
             condenseApplied={condenseApplied}
             removedBullets={removedBullets}
             allowItemRemoval={allowItemRemoval}
+            removalReason={removalAdvice[item.id]}
             onAccept={onAccept}
             onUpdate={onUpdate}
             onApplyCondense={onApplyCondense}
@@ -1039,6 +1019,7 @@ function EditableItem({
   condenseApplied,
   removedBullets,
   allowItemRemoval,
+  removalReason,
   onAccept,
   onUpdate,
   onApplyCondense,
@@ -1051,7 +1032,14 @@ function EditableItem({
     ([, removed]) => removed.section === section && removed.itemId === item.id,
   );
   return (
-    <div className="rounded-xl border border-neutral-200">
+    <div className={`rounded-xl border ${removalReason !== undefined ? "border-red-200" : "border-neutral-200"}`}>
+      {removalReason !== undefined ? (
+        <div className="rounded-t-xl border-b border-red-100 bg-red-50/70 px-4 py-2 text-[11px] leading-5 text-red-700">
+          <span className="font-semibold">AI 建议从这版删掉</span>
+          {removalReason ? `：${removalReason}` : "：与这个岗位关联较弱"}
+          <span className="text-red-500/80">（可以点右侧"删除整段"，删除后可撤销）</span>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 px-4 py-3">
         <button
           className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
