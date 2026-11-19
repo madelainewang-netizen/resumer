@@ -1,274 +1,253 @@
-import { forwardRef } from "react";
-import { splitBulletSummary } from "../utils/bulletSummary";
-import { hasVisibleEntryContent } from "../utils/resumeVisibility";
-import { getResumeLayout } from "../utils/resumeLayout";
+import { forwardRef, useLayoutEffect, useRef, useState } from "react";
+import { buildResumeModel } from "../resume/resumeModel";
+import { fixHtmlOrphans } from "../utils/htmlOrphans";
+import {
+  A4,
+  AUTO_LEVEL,
+  getResumeLayout,
+  LAYOUT_COUNT,
+  normalizeCompactLevel,
+  RESUME_COLORS,
+  STANDARD_LEVEL,
+} from "../utils/resumeLayout";
 
+const C = RESUME_COLORS;
+
+/**
+ * 网页预览：在 595×842 的画布上按 1pt = 1px 排版（字体、字号、留白与 PDF 相同），
+ * 再整体缩放到容器宽度。选择"自动"时，会在隐藏画布里量出每一档的高度，
+ * 挑出能放进一页的最宽松档位，规则与 PDF 导出一致。
+ */
 const ResumePaper = forwardRef(function ResumePaper(
-  { profile, compactLevel = 0, className = "" },
+  { profile, compactLevel = AUTO_LEVEL, className = "", onOverflowChange },
   ref,
 ) {
-  const layout = getResumeLayout(compactLevel);
-  const {
-    scale,
-    bodySize,
-    lineHeight,
-    paddingTop,
-    paddingBottom,
-    paddingHorizontal,
-    sectionGap,
-    entryGap,
-    photoWidth,
-    photoHeight,
-    photoReserve,
-    headerMinHeight,
-  } = layout;
-  const flowCV = profile.source?.template === "flowcv";
-  const sectionOrder = profile.sectionOrder?.length
-    ? profile.sectionOrder
-    : ["education", "experience", "projects", "customSections", "skills"];
+  const requested = normalizeCompactLevel(compactLevel);
+  const model = buildResumeModel(profile);
+  const frameRef = useRef(null);
+  const pageRef = useRef(null);
+  const probeRefs = useRef([]);
+  const [scale, setScale] = useState(1);
+  const [contentHeight, setContentHeight] = useState(A4.height);
+  const [autoLevel, setAutoLevel] = useState(STANDARD_LEVEL);
+  const level = requested === AUTO_LEVEL ? autoLevel : requested;
 
-  const renderSection = (sectionKey) => {
-    if (sectionKey === "education" && profile.education.length) {
-      const education = profile.education.filter((item) =>
-        [item.school, item.degree, item.field, item.startDate, item.endDate, item.details]
-          .some((value) => String(value || "").trim()),
-      );
-      if (!education.length) return null;
-      return (
-        <ResumeSection key="education" title="教育经历" compact={compactLevel === 3}>
-          <div style={{ display: "grid", gap: entryGap * 0.8 }}>
-            {education.map((item) => (
-              <div key={item.id}>
-                <div className="flex items-baseline justify-between gap-4">
-                  <p className="font-semibold">
-                    {[item.degree, item.field].filter(Boolean).join("，")}
-                    {item.school ? (
-                      <span className="ml-2 font-normal text-neutral-700">{item.school}</span>
-                    ) : null}
-                  </p>
-                  <span className="shrink-0 text-neutral-500">
-                    {[item.startDate, item.endDate].filter(Boolean).join(" – ")}
-                  </span>
-                </div>
-                {item.details ? <p className="mt-1 text-neutral-600">{item.details}</p> : null}
-              </div>
-            ))}
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      setScale(entry.contentRect.width / A4.width || 1);
+    });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (requested === AUTO_LEVEL) {
+        const heights = probeRefs.current.map((node) => node?.scrollHeight ?? Infinity);
+        const fitting = heights.findIndex((height) => height <= A4.height + 0.5);
+        setAutoLevel(fitting === -1 ? STANDARD_LEVEL : fitting);
+      }
+      const page = pageRef.current;
+      if (page) {
+        fixHtmlOrphans(page, { fontSize: getResumeLayout(level).bodySize, scale });
+        setContentHeight(Math.max(page.scrollHeight, A4.height));
+      }
+    };
+    measure();
+    // 字体加载完成后重新测量，避免用回退字体的高度判断分页
+    document.fonts?.ready?.then(measure);
+  });
+
+  const pages = Math.max(1, Math.ceil((contentHeight - 1) / A4.height));
+  const overflowing = pages > 1;
+  useLayoutEffect(() => {
+    onOverflowChange?.(overflowing, pages);
+  }, [overflowing, pages, onOverflowChange]);
+
+  return (
+    <div ref={ref} className={className}>
+      <div
+        ref={frameRef}
+        className="relative w-full overflow-hidden bg-white shadow-[0_3px_18px_rgba(0,0,0,0.08)]"
+        style={{ height: contentHeight * scale }}
+      >
+        <PaperPage
+          ref={pageRef}
+          model={model}
+          layout={getResumeLayout(level)}
+          style={{ transform: `scale(${scale})` }}
+        />
+        {Array.from({ length: pages - 1 }, (_, index) => (
+          <div
+            key={index}
+            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-amber-500"
+            style={{ top: A4.height * (index + 1) * scale }}
+          >
+            <span className="absolute right-1 top-0.5 rounded bg-amber-50 px-1.5 text-[10px] text-amber-700">
+              第 {index + 1} 页结束
+            </span>
           </div>
-        </ResumeSection>
-      );
-    }
+        ))}
+      </div>
+      {requested === AUTO_LEVEL ? (
+        <div aria-hidden="true" style={{ position: "absolute", visibility: "hidden", height: 0, overflow: "hidden" }}>
+          {Array.from({ length: LAYOUT_COUNT }, (_, index) => (
+            <PaperPage
+              key={index}
+              ref={(node) => {
+                probeRefs.current[index] = node;
+              }}
+              model={model}
+              layout={getResumeLayout(index)}
+              probe
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+});
 
-    if (sectionKey === "experience" && profile.experience.length) {
-      return (
-        <ResumeSection
-          key="experience"
-          title={flowCV ? "实习经历" : "工作经历"}
-          compact={compactLevel === 3}
-        >
-          <div style={{ display: "grid", gap: entryGap }}>
-            {profile.experience.map((item) => (
-              <ResumeEntry
-                key={item.id}
-                title={item.role}
-                organization={item.company}
-                meta={[item.startDate, item.endDate].filter(Boolean).join(" – ")}
-                location={item.location}
-                bullets={item.bullets}
-              />
-            ))}
-          </div>
-        </ResumeSection>
-      );
-    }
-
-    if (sectionKey === "projects" && profile.projects.length) {
-      return (
-        <ResumeSection key="projects" title="项目经历" compact={compactLevel === 3}>
-          <div style={{ display: "grid", gap: entryGap }}>
-            {profile.projects.map((item) => (
-              <ResumeEntry
-                key={item.id}
-                title={item.name}
-                organization={[item.role, item.stack].filter(Boolean).join(" · ")}
-                meta={[item.startDate, item.endDate].filter(Boolean).join(" – ")}
-                bullets={item.bullets}
-              />
-            ))}
-          </div>
-        </ResumeSection>
-      );
-    }
-
-    const visibleSkills = profile.skills.filter((item) => item.trim());
-    if (sectionKey === "skills" && visibleSkills.length) {
-      return (
-        <ResumeSection
-          key="skills"
-          title={flowCV ? "其他" : "专业技能"}
-          compact={compactLevel === 3}
-        >
-          <p className="text-neutral-700">{visibleSkills.join(" · ")}</p>
-        </ResumeSection>
-      );
-    }
-
-    const allCustomSections = profile.customSections || [];
-    const customSections =
-      sectionKey === "customSections"
-        ? allCustomSections
-        : allCustomSections.filter((section) => section.id === sectionKey);
-    const visibleSections = customSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) =>
-          hasVisibleEntryContent({
-            title: item.title,
-            organization: item.subtitle,
-            meta: item.date,
-            location: item.location,
-            bullets: item.bullets,
-          }),
-        ),
-      }))
-      .filter((section) => section.items.length);
-    if (visibleSections.length) {
-      return visibleSections.map((section) => (
-        <ResumeSection
-          key={section.id}
-          title={section.title}
-          compact={compactLevel === 3}
-        >
-          <div style={{ display: "grid", gap: entryGap * 0.9 }}>
-            {section.items.map((item) => (
-              <ResumeEntry
-                key={item.id}
-                title={item.title}
-                organization={item.subtitle}
-                meta={item.date}
-                location={item.location}
-                bullets={item.bullets}
-              />
-            ))}
-          </div>
-        </ResumeSection>
-      ));
-    }
-    return null;
-  };
+const PaperPage = forwardRef(function PaperPage({ model, layout, style, probe = false }, ref) {
+  const { header } = model;
+  const photoReserve = header.photo ? layout.photoWidth + 14 : 0;
+  const labelWidth = layout.labelSize * 4.2;
 
   return (
     <div
       ref={ref}
-      className={`relative aspect-[210/297] w-full overflow-visible bg-white text-[#202020] shadow-[0_3px_18px_rgba(0,0,0,0.08)] ${className}`}
+      className={`resume-paper ${probe ? "" : "absolute left-0 top-0 origin-top-left"}`}
       style={{
-        paddingTop,
-        paddingBottom,
-        paddingLeft: paddingHorizontal,
-        paddingRight: paddingHorizontal,
-        fontSize: bodySize,
-        lineHeight,
+        width: A4.width,
+        minHeight: probe ? undefined : A4.height,
+        paddingTop: layout.paddingTop,
+        paddingBottom: layout.paddingBottom,
+        paddingLeft: layout.paddingHorizontal,
+        paddingRight: layout.paddingHorizontal,
+        fontSize: layout.bodySize,
+        lineHeight: layout.lineHeight,
+        color: C.text,
+        position: probe ? "relative" : "absolute",
+        ...style,
       }}
     >
       <header
-        className="relative pb-1"
-        style={
-          profile.basics.photo
-            ? { paddingRight: photoReserve, minHeight: headerMinHeight }
-            : undefined
-        }
+        className="relative"
+        style={{ paddingRight: photoReserve, minHeight: header.photo ? layout.photoHeight : undefined }}
       >
-        <h1 className="font-semibold tracking-[-0.04em]" style={{ fontSize: 24 * scale, lineHeight: 1.1 }}>
-          {profile.basics.name || "你的姓名"}
-        </h1>
-        {!flowCV || profile.basics.targetRole ? (
-          <p className="mt-1 font-medium text-neutral-700" style={{ fontSize: 11 * scale }}>
-            {profile.basics.targetRole || "目标岗位"}
-          </p>
-        ) : null}
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-neutral-500">
-          {[
-            profile.basics.email,
-            profile.basics.phone,
-            profile.basics.extraContact,
-            profile.basics.links,
-          ].filter(Boolean).map((item) => (
-            <span key={item}>{item}</span>
-          ))}
+        <div className="flex items-end">
+          <h1 style={{ fontSize: layout.nameSize, fontWeight: 700, lineHeight: 1.2 }}>{header.name}</h1>
+          {header.role ? (
+            <span
+              style={{
+                fontSize: layout.subNameSize,
+                color: C.subName,
+                lineHeight: 1.2,
+                marginLeft: 8,
+                marginBottom: 1.5,
+              }}
+            >
+              {header.role}
+            </span>
+          ) : null}
         </div>
-        {profile.basics.photo ? (
+        {header.contacts.length ? (
+          <div className="flex flex-wrap" style={{ marginTop: layout.headerGap }}>
+            {header.contacts.map((item, index) => (
+              <div
+                key={`${item.label}-${index}`}
+                className="flex"
+                style={{ width: "50%", marginBottom: layout.contactGap }}
+              >
+                <span className="shrink-0" style={{ width: labelWidth, fontSize: layout.labelSize, color: C.label }}>
+                  {item.label}
+                </span>
+                <span className="min-w-0 flex-1" style={{ paddingRight: 6 }}>
+                  {item.href ? (
+                    <a href={item.href} target="_blank" rel="noreferrer" style={{ color: C.text }}>
+                      {item.value}
+                    </a>
+                  ) : (
+                    item.value
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {header.photo ? (
           <img
-            className="absolute right-0 top-0 rounded-sm object-cover"
-            style={{ width: photoWidth, height: photoHeight }}
-            src={profile.basics.photo}
+            className="absolute right-0 top-0 object-cover"
+            style={{ width: layout.photoWidth, height: layout.photoHeight }}
+            src={header.photo}
             alt=""
           />
         ) : null}
       </header>
 
-      <div className={compactLevel === 3 ? "pt-0.5" : "pt-1"} style={{ display: "grid", gap: sectionGap }}>
-        {profile.basics.summary ? (
-          <ResumeSection title="职业摘要" compact={compactLevel === 3}>
-            <p className="text-neutral-700">{profile.basics.summary}</p>
-          </ResumeSection>
-        ) : null}
+      {model.sections.map((section) => (
+        <section key={section.key} style={{ marginTop: layout.sectionGap }}>
+          <h2
+            style={{
+              fontSize: layout.sectionTitleSize,
+              fontWeight: 700,
+              lineHeight: 1.35,
+              borderBottom: `0.75px solid ${C.rule}`,
+              paddingBottom: 1,
+              marginBottom: layout.sectionTitleGap,
+            }}
+          >
+            {section.title}
+          </h2>
+          {section.kind === "paragraph" ? (
+            <p data-orphan-guard="">{section.text}</p>
+          ) : (
+            section.entries.map((entry, index) => (
+              <div key={entry.id || index} style={{ marginTop: index ? layout.entryGap : 0 }}>
+                {entry.title || entry.subtitle || entry.meta ? (
+                  <div className="flex items-start justify-between">
+                    <p className="min-w-0 flex-1" style={{ paddingRight: 10 }}>
+                      {entry.title ? <strong style={{ fontWeight: 700 }}>{entry.title}</strong> : null}
+                      {entry.title && entry.subtitle ? entry.separator || " | " : null}
+                      {entry.subtitle}
+                    </p>
+                    {entry.meta ? (
+                      <span className="shrink-0 text-right" style={{ maxWidth: 200 }}>
+                        {entry.meta}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {entry.secondary ? <p data-orphan-guard="">{entry.secondary}</p> : null}
+                {entry.bullets.map((bullet) => (
+                  <div key={bullet.id} className="flex" style={{ marginTop: layout.bulletGap }}>
+                    <span className="shrink-0" style={{ width: layout.bulletIndent, paddingLeft: layout.bulletDotOffset }}>
+                      •
+                    </span>
+                    <p className="min-w-0 flex-1" data-orphan-guard="">
+                      {bullet.lead ? <strong style={{ fontWeight: 700 }}>{bullet.lead}</strong> : null}
+                      {bullet.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </section>
+      ))}
 
-        {sectionOrder.map(renderSection)}
-      </div>
+      {model.footer && !probe ? (
+        <p
+          className="absolute inset-x-0 text-center"
+          style={{ bottom: 14, fontSize: layout.footerSize, lineHeight: 1, color: C.footer }}
+        >
+          {model.footer}
+        </p>
+      ) : null}
     </div>
   );
 });
-
-function ResumeSection({ title, children, compact = false }) {
-  return (
-    <section>
-      {title ? (
-        <h2
-          className={`border-b border-neutral-200 text-[0.92em] font-bold uppercase tracking-[0.12em] ${
-            compact ? "mb-0.5 pb-0" : "mb-1 pb-0.5"
-          }`}
-        >
-          {title}
-        </h2>
-      ) : null}
-      {children}
-    </section>
-  );
-}
-
-function ResumeEntry({ title, organization, meta, location, bullets }) {
-  if (!hasVisibleEntryContent({ title, organization, meta, location, bullets })) {
-    return null;
-  }
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-4">
-        <p className="font-semibold">
-          {title}
-          {organization ? (
-            <span className="ml-2 font-normal text-neutral-600">{organization}</span>
-          ) : null}
-        </p>
-        <span className="shrink-0 text-neutral-500">
-          {[location, meta].filter(Boolean).join(" · ")}
-        </span>
-      </div>
-      <ul className="mt-1 space-y-1 pl-3.5">
-        {bullets
-          .filter((bullet) => bullet.text)
-          .map((bullet) => {
-            const { summary, body } = splitBulletSummary(bullet.text);
-            return (
-              <li key={bullet.id} className="list-disc pl-0.5 text-neutral-700">
-                {summary ? (
-                  <span className="font-semibold text-neutral-900">{summary}</span>
-                ) : null}
-                {summary ? body : bullet.text}
-              </li>
-            );
-          })}
-      </ul>
-    </div>
-  );
-}
 
 export default ResumePaper;

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useResumerServices } from "../services/ResumerServicesContext";
+import { listEvidenceTargets } from "../utils/evidence";
 
 const destinationLabels = {
   experience: "工作 / 实习经历",
@@ -70,11 +71,9 @@ export default function EvidenceCoach({
     };
   }, [open, requirement, evidenceHint, analysis, profile, getEvidenceQuestions]);
 
+  // 所有问题都是选答：至少回答一题即可生成草稿，有什么写什么
   const requiredComplete = useMemo(
-    () =>
-      questionSet?.questions
-        ?.filter((item) => item.required)
-        .every((item) => answers[item.id]?.trim()) ?? false,
+    () => questionSet?.questions?.some((item) => answers[item.id]?.trim()) ?? false,
     [answers, questionSet],
   );
 
@@ -82,7 +81,7 @@ export default function EvidenceCoach({
 
   const generateDraft = async () => {
     if (!requiredComplete) {
-      setError("请先回答标记为必填的问题。没有相关经历也可以直接保留这个能力缺口。");
+      setError("至少回答一个问题，AI 才有素材可写。没有相关经历的话，可以直接保留这个缺口。");
       return;
     }
     setLoading(true);
@@ -100,7 +99,7 @@ export default function EvidenceCoach({
         },
         setProgress,
       );
-      setDraft(normalizeDraft(result));
+      setDraft(normalizeDraft(result, listEvidenceTargets(profile)));
       setStage("draft");
     } catch (requestError) {
       setError(requestError.message);
@@ -112,7 +111,7 @@ export default function EvidenceCoach({
 
   const confirmDraft = () => {
     const cleanedBullets = draft.bullets.map((item) => item.trim()).filter(Boolean);
-    if (!draft.title.trim() && !draft.role.trim()) {
+    if (!draft.targetItemId && !draft.title.trim() && !draft.role.trim()) {
       setError("请至少填写经历名称或你的角色。");
       return;
     }
@@ -121,7 +120,10 @@ export default function EvidenceCoach({
       return;
     }
     onAddEvidence({ ...draft, bullets: cleanedBullets });
-    notify("经历已加入基础资料", "你可以继续在基础资料中编辑，匹配状态也已重新计算。");
+    notify(
+      draft.targetItemId ? "已加到原有经历里" : "经历已加入基础资料",
+      "你可以继续在基础资料中编辑，匹配状态也已重新计算。",
+    );
     onClose();
   };
 
@@ -173,7 +175,7 @@ export default function EvidenceCoach({
               setAnswers={setAnswers}
             />
           ) : (
-            <DraftStage draft={draft} setDraft={setDraft} />
+            <DraftStage draft={draft} setDraft={setDraft} targets={listEvidenceTargets(profile)} />
           )}
 
           {error ? (
@@ -242,12 +244,14 @@ function QuestionsStage({ questionSet, answers, setAnswers }) {
         ) : null}
       </div>
 
-      <div className="mt-5 space-y-5">
+      <p className="mt-5 text-[11px] leading-5 text-neutral-500">
+        所有问题都可以跳过，挑你记得的回答就行，一两句话也可以。写得越具体，生成的经历越像你。
+      </p>
+      <div className="mt-3 space-y-5">
         {questionSet.questions.map((item, index) => (
           <label key={item.id} className="block">
             <span className="field-label">
               {index + 1}. {item.question}
-              {item.required ? <span className="ml-1 text-red-500">*</span> : null}
             </span>
             <textarea
               className="field min-h-[92px] resize-y text-xs leading-5"
@@ -267,9 +271,15 @@ function QuestionsStage({ questionSet, answers, setAnswers }) {
   );
 }
 
-function DraftStage({ draft, setDraft }) {
+function DraftStage({ draft, setDraft, targets }) {
   if (!draft) return null;
   const update = (patch) => setDraft((current) => ({ ...current, ...patch }));
+  const appending = Boolean(draft.targetItemId);
+  const destination = appending ? `existing:${draft.targetItemId}` : `new:${draft.suggestedType}`;
+  const chooseDestination = (value) => {
+    const [kind, id] = value.split(":");
+    update(kind === "existing" ? { targetItemId: id } : { targetItemId: "", suggestedType: id });
+  };
   return (
     <div>
       <div className="mb-5 flex gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
@@ -283,18 +293,25 @@ function DraftStage({ draft, setDraft }) {
       </div>
 
       <label className="block">
-        <span className="field-label">放入简历的哪个部分</span>
-        <select
-          className="field"
-          value={draft.suggestedType}
-          onChange={(event) => update({ suggestedType: event.target.value })}
-        >
-          {Object.entries(destinationLabels).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
+        <span className="field-label">放到简历哪里</span>
+        <select className="field" value={destination} onChange={(event) => chooseDestination(event.target.value)}>
+          {targets.length ? (
+            <optgroup label="加到已有经历里（作为新的一条）">
+              {targets.map((target) => (
+                <option key={target.id} value={`existing:${target.id}`}>{target.label}</option>
+              ))}
+            </optgroup>
+          ) : null}
+          <optgroup label="新建一段经历">
+            {Object.entries(destinationLabels).map(([value, label]) => (
+              <option key={value} value={`new:${value}`}>新建：{label}</option>
+            ))}
+          </optgroup>
         </select>
       </label>
 
+      {appending ? null : (
+      <>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <DraftField label="经历 / 项目名称" value={draft.title} onChange={(title) => update({ title })} />
         <DraftField label="你的角色" value={draft.role} onChange={(role) => update({ role })} />
@@ -319,6 +336,8 @@ function DraftStage({ draft, setDraft }) {
           }
         />
       </label>
+      </>
+      )}
 
       <div className="mt-5">
         <div className="mb-2 flex items-center justify-between">
@@ -404,12 +423,13 @@ function LoadingState({ progress }) {
   );
 }
 
-function normalizeDraft(result) {
+function normalizeDraft(result, targets = []) {
   const validType = Object.hasOwn(destinationLabels, result.suggestedType)
     ? result.suggestedType
     : "project";
   return {
     suggestedType: validType,
+    targetItemId: targets.some((target) => target.id === result.targetItemId) ? result.targetItemId : "",
     title: result.title || "",
     organization: result.organization || "",
     role: result.role || "",

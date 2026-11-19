@@ -1,5 +1,7 @@
 import { emptyProfile } from "../data/defaults";
 import { profileSchema } from "../schemas";
+import { mergeDuplicateEntries } from "../utils/evidence";
+import { profileSignature } from "../utils/profileSignature";
 
 const PROFILE_KEY = "resumer.profile.v1";
 const SESSION_KEY = "resumer.session.v1";
@@ -14,7 +16,7 @@ function readJSON(key, fallback) {
   }
 }
 
-export function normalizeProfile(stored) {
+export function normalizeProfile(stored, { mergeDuplicates = true } = {}) {
   const candidate = {
     ...structuredClone(emptyProfile),
     ...(stored || {}),
@@ -26,7 +28,9 @@ export function normalizeProfile(stored) {
     customSections: stored?.customSections || [],
   };
   const parsed = profileSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : structuredClone(emptyProfile);
+  if (!parsed.success) return structuredClone(emptyProfile);
+  // 修复旧版本"补充经历"另起一段造成的重复经历
+  return mergeDuplicateEntries ? mergeDuplicateEntries(parsed.data) : parsed.data;
 }
 
 export function loadProfile() {
@@ -48,8 +52,14 @@ export function loadSession() {
     activeStep: "profile",
     updatedAt: null,
   });
+  // 合并重复经历会改变档案签名；如果定制结果原本对应的是合并前的档案，同步更新签名，避免被当成过期
+  const rawProfile = readJSON(PROFILE_KEY, emptyProfile);
+  const before = profileSignature(normalizeProfile(rawProfile, { mergeDuplicates: false }));
+  const after = profileSignature(normalizeProfile(rawProfile));
   return {
     ...session,
+    tailoredSourceSignature:
+      session.tailoredSourceSignature === before ? after : session.tailoredSourceSignature,
     tailoredProfile: session.tailoredProfile
       ? normalizeProfile(session.tailoredProfile)
       : null,

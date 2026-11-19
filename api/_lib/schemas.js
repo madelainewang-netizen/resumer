@@ -224,6 +224,7 @@ export const evidenceDraftJSONSchema = {
   type: "object",
   additionalProperties: false,
   required: [
+    "targetItemId",
     "suggestedType",
     "title",
     "organization",
@@ -236,6 +237,7 @@ export const evidenceDraftJSONSchema = {
     "verificationChecklist",
   ],
   properties: {
+    targetItemId: { type: "string" },
     suggestedType: {
       type: "string",
       enum: ["experience", "project", "custom"],

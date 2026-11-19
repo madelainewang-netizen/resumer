@@ -232,6 +232,7 @@ export default function App({ runtime = {} }) {
     content = (
       <TailorWorkspace
         profile={profile}
+        setProfile={setProfile}
         analysis={analysis}
         tailoredProfile={tailoredProfile}
         setTailoredProfile={setTailoredProfile}
@@ -255,14 +256,14 @@ export default function App({ runtime = {} }) {
         matchExplanation={matchExplanation}
         setMatchExplanation={setMatchExplanation}
         onSaveVersion={handleSaveVersion}
-        compactLevel={normalizeCompactLevel(tailorWorkspaceState.compactLevel, 2)}
+        compactLevel={normalizeCompactLevel(tailorWorkspaceState.compactLevel)}
         setCompactLevel={(value) =>
           setTailorWorkspaceState((current) => ({
             ...current,
             compactLevel:
               typeof value === "function"
-                ? normalizeCompactLevel(value(current.compactLevel), 2)
-                : normalizeCompactLevel(value, 2),
+                ? normalizeCompactLevel(value(current.compactLevel))
+                : normalizeCompactLevel(value),
           }))
         }
         notify={notify}

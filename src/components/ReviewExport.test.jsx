@@ -1,25 +1,29 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("ReviewExport multi-page export", () => {
-  it("does not block PDF export when the preview exceeds one A4 page", () => {
-    const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
+describe("ReviewExport", () => {
+  const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
 
-    expect(source).not.toContain("暂时无法导出");
-    expect(source).not.toMatch(/disabled=\{exporting\s*\|\|\s*likelyOverflow\}/);
-    expect(source).toContain("内容会按 A4 自动分页");
+  it("previews the real PDF instead of a separate HTML approximation", () => {
+    expect(source).toContain("<PdfPreview");
+    expect(source).not.toContain("<ResumePaper");
   });
 
-  it("does not override the user's selected preview density", () => {
-    const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
+  it("surfaces layout checks: orphan lines and unused space", () => {
+    expect(source).toContain("pdfInfo.orphans");
+    expect(source).toContain("pdfInfo.remainingLines");
+  });
 
-    expect(source).not.toMatch(/setCompactLevel\(\(level\)/);
-    expect(source).toContain("setIsOverflowing(overflows)");
+  it("downloads the same PDF blob that was previewed when nothing changed", () => {
+    expect(source).toContain("latestPdf.current");
+    expect(source).toContain("generateResumePdf(profile, compactLevel)");
+  });
+
+  it("never blocks multi-page export", () => {
+    expect(source).not.toMatch(/disabled=\{exporting\s*\|\|\s*likelyOverflow\}/);
   });
 
   it("can use a shared preview density from the workspace", () => {
-    const source = readFileSync("src/components/ReviewExport.jsx", "utf8");
-
     expect(source).toContain("controlledCompactLevel ?? localCompactLevel");
     expect(source).toContain("normalizeCompactLevel");
   });

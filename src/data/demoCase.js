@@ -229,7 +229,7 @@ export const demoSession = {
     accepted: {},
     condensePlan: demoCondensePlan,
     condenseApplied: {},
-    compactLevel: 1,
+    compactLevel: "auto",
   },
   matchExplanation: demoMatchExplanation,
   activeStep: "tailor",

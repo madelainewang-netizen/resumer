@@ -1,3 +1,4 @@
+import { cleanResumeStrings } from "../src/utils/cleanText.js";
 import { apiError, requirePost, sendEvent, startSSE } from "./_lib/http.js";
 import { streamStructuredResponse } from "./_lib/ai.js";
 import { extractPDFLayout } from "./_lib/pdf.js";
@@ -38,7 +39,8 @@ export default async function handler(req, res) {
       schemaName: "imported_resume",
       schema: importedProfileJSONSchema,
       sendEvent,
-      transformResult: normalizeImportedProfile,
+      transformResult: (profile) => cleanResumeStrings(normalizeImportedProfile(profile)),
+      temperature: 0,
       system: `你是简历文档结构化专家。根据从 PDF 提取的带顺序文本和版面信息转换为可编辑简历数据。
 必须遵守：
 1. 完整保留原文事实、数字、语言和内容，不润色、不删减、不翻译。

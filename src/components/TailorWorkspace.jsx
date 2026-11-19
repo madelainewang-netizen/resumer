@@ -5,6 +5,7 @@ import {
   ChevronUp,
   RotateCcw,
   Scissors,
+  MessageSquarePlus,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -29,13 +30,17 @@ import {
   restoreSummary,
 } from "../utils/condenseResume";
 import { profileSignature } from "../utils/profileSignature";
-import { normalizeCompactLevel } from "../utils/resumeLayout";
+import { AUTO_LEVEL, COMPACT_LEVELS, normalizeCompactLevel } from "../utils/resumeLayout";
 import { updateTailoredBullet } from "../utils/tailorProfile";
 import ResumePaper from "./ResumePaper";
 import { LoadingButton, SectionHeader, StatusPill } from "./ui";
+import EvidenceCoach from "./EvidenceCoach";
+import { addEvidenceToProfile, mergeAddedEvidence } from "../utils/evidence";
+import { evaluateRequirementEvidence } from "../utils/matchScore";
 
 export default function TailorWorkspace({
   profile,
+  setProfile,
   analysis,
   tailoredProfile,
   setTailoredProfile,
@@ -60,7 +65,7 @@ export default function TailorWorkspace({
   const removedSkills = workspaceState.removedSkills || {};
   const removedCustomItems = workspaceState.removedCustomItems || {};
   const removedCustomSections = workspaceState.removedCustomSections || {};
-  const compactLevel = normalizeCompactLevel(workspaceState.compactLevel, 0);
+  const compactLevel = normalizeCompactLevel(workspaceState.compactLevel);
   const [condenseLoading, setCondenseLoading] = useState(false);
   const [condenseProgress, setCondenseProgress] = useState("");
   const setWorkspaceSlice = (key, fallback, value) =>
@@ -87,14 +92,41 @@ export default function TailorWorkspace({
   const setRemovedCustomSections = (value) =>
     setWorkspaceSlice("removedCustomSections", {}, value);
   const setCompactLevel = (value) =>
-    setWorkspaceSlice("compactLevel", 0, (current) =>
-      normalizeCompactLevel(typeof value === "function" ? value(current) : value, 0),
+    setWorkspaceSlice("compactLevel", AUTO_LEVEL, (current) =>
+      normalizeCompactLevel(typeof value === "function" ? value(current) : value),
     );
   const currentProfileSignature = profileSignature(profile);
   const isTailoredCurrent =
     Boolean(tailoredProfile) &&
     tailoredSourceSignature === currentProfileSignature;
   const displayProfile = isTailoredCurrent ? tailoredProfile : profile;
+  const [coachTarget, setCoachTarget] = useState(null);
+  // 岗位要求里简历还没写到的经历：优先用 AI 改写时给出的缺口，旧结果没有时按规则检查核心要求
+  const gaps = useMemo(() => {
+    if (!isTailoredCurrent) return [];
+    if (Array.isArray(tailoredProfile?.tailorGaps)) return tailoredProfile.tailorGaps;
+    return (analysis?.coreRequirements || [])
+      .filter((item) => evaluateRequirementEvidence(profile, item.requirement, analysis) !== "strong")
+      .slice(0, 5)
+      .map((item) => ({ requirement: item.requirement, reason: "", evidenceHint: item.evidenceHint }));
+  }, [analysis, isTailoredCurrent, profile, tailoredProfile]);
+
+  // 补充的新经历同时写入简历档案和当前定制结果，不需要重新生成
+  const addEvidence = (draft) => {
+    const nextProfile = addEvidenceToProfile(profile, draft);
+    setProfile(nextProfile);
+    setTailoredProfile((current) =>
+      current
+        ? {
+            ...mergeAddedEvidence(current, profile, nextProfile),
+            tailorGaps: (current.tailorGaps || []).filter(
+              (gap) => gap.requirement !== coachTarget?.requirement,
+            ),
+          }
+        : current,
+    );
+    setTailoredSourceSignature(profileSignature(nextProfile));
+  };
 
   const generate = async () => {
     if (!analysis) {
@@ -399,6 +431,51 @@ export default function TailorWorkspace({
                   </p>
                 </div>
 
+                {isTailoredCurrent && (tailoredProfile?.tailorFocus?.length || tailoredProfile?.tailorOverall) ? (
+                  <div className="mb-4 rounded-xl border border-neutral-200 p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                      <WandSparkles size={14} />
+                      这次按这些岗位能力改写
+                    </div>
+                    {tailoredProfile.tailorFocus?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {tailoredProfile.tailorFocus.map((item) => (
+                          <span key={item} className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] text-neutral-700">
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {tailoredProfile.tailorOverall ? (
+                      <p className="mt-2 text-[11px] leading-5 text-neutral-500">{tailoredProfile.tailorOverall}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {isTailoredCurrent && tailoredProfile?.tailorToConfirm?.length ? (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-white p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
+                      <ShieldCheck size={14} />
+                      需要你确认
+                    </div>
+                    <ul className="mt-2 space-y-1.5">
+                      {tailoredProfile.tailorToConfirm.map((item) => (
+                        <li key={item} className="text-[11px] leading-5 text-neutral-600">· {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {isTailoredCurrent && changedBullets.length === 0 ? (
+                  <p className="mb-4 rounded-xl bg-neutral-50 p-3.5 text-[11px] leading-5 text-neutral-500">
+                    现有经历已经写得贴合这个岗位，AI 没有需要改的地方。想让简历更有竞争力，就要补上下面这些岗位看重、但简历里还没写到的经历。
+                  </p>
+                ) : null}
+
+                {gaps.length ? (
+                  <GapPanel gaps={gaps} onAdd={setCoachTarget} />
+                ) : null}
+
                 {condensePlan ? (
                   <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
                     <div className="flex items-center gap-2 text-xs font-semibold">
@@ -510,12 +587,11 @@ export default function TailorWorkspace({
                 <select
                   className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] outline-none"
                   value={compactLevel}
-                  onChange={(event) => setCompactLevel(Number(event.target.value))}
+                  onChange={(event) => setCompactLevel(event.target.value)}
                 >
-                  <option value={0}>舒展</option>
-                  <option value={1}>紧凑</option>
-                  <option value={2}>更紧凑</option>
-                  <option value={3}>最小可读</option>
+                  {COMPACT_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>{level.label}</option>
+                  ))}
                 </select>
               </div>
               <ResumePaper profile={displayProfile} compactLevel={compactLevel} />
@@ -525,6 +601,57 @@ export default function TailorWorkspace({
             </aside>
           </div>
         )}
+      </div>
+      <EvidenceCoach
+        open={Boolean(coachTarget)}
+        onClose={() => setCoachTarget(null)}
+        requirement={coachTarget?.requirement || ""}
+        evidenceHint={[coachTarget?.reason, coachTarget?.evidenceHint].filter(Boolean).join("；")}
+        analysis={analysis}
+        profile={profile}
+        onAddEvidence={(draft) => {
+          addEvidence(draft);
+          notify("已加入简历", "新经历已写进简历档案和右侧预览。");
+        }}
+        notify={notify}
+      />
+    </div>
+  );
+}
+
+// Safari 不支持 field-sizing，用脚本让编辑框随内容变高，避免文字被截断
+function autoGrow(node) {
+  if (!node) return;
+  node.style.height = "auto";
+  node.style.height = `${node.scrollHeight + 2}px`;
+}
+
+function GapPanel({ gaps, onAdd }) {
+  return (
+    <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3.5">
+      <div className="flex items-center gap-2 text-xs font-semibold text-blue-900">
+        <MessageSquarePlus size={14} />
+        岗位看重、简历里还没写到的经历
+      </div>
+      <p className="mt-1 text-[11px] leading-5 text-blue-800/80">
+        AI 不会替你编这些内容。点"补充经历"，回答几个问题，它会根据你的回答写成新的一条经历。
+      </p>
+      <div className="mt-3 space-y-2">
+        {gaps.map((gap) => (
+          <div key={gap.requirement} className="flex items-start justify-between gap-3 rounded-lg bg-white p-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-neutral-800">{gap.requirement}</p>
+              {gap.reason ? <p className="mt-1 text-[11px] leading-5 text-neutral-500">{gap.reason}</p> : null}
+              {gap.evidenceHint ? (
+                <p className="mt-0.5 text-[11px] leading-5 text-neutral-400">可以从这些经历里找：{gap.evidenceHint}</p>
+              ) : null}
+            </div>
+            <button className="secondary-button shrink-0" onClick={() => onAdd(gap)}>
+              <MessageSquarePlus size={13} />
+              补充经历
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -903,7 +1030,7 @@ function EditableItem({
                   onKeep={() => onKeepOriginal(recommendation)}
                 />
               ) : null}
-              {bullet.originalText ? (
+              {bullet.originalText && bullet.originalText !== bullet.text ? (
                 <div className="mb-3">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
                     原文
@@ -913,11 +1040,20 @@ function EditableItem({
                   </p>
                 </div>
               ) : null}
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-500">
-                优化建议
-              </p>
+              <div className="mb-1 flex items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-500">
+                  {bullet.originalText && bullet.originalText === bullet.text ? "保持原文" : "优化建议"}
+                </p>
+                {bullet.verificationRequired ? <StatusPill tone="warning">需核实</StatusPill> : null}
+              </div>
+              {bullet.tailorReason ? (
+                <p className="mb-2 text-[11px] leading-5 text-neutral-500">{bullet.tailorReason}</p>
+              ) : null}
               <textarea
-                className="field min-h-[86px] resize-y bg-white text-xs leading-5"
+                className="field min-h-[64px] resize-y bg-white text-xs leading-5"
+                style={{ fieldSizing: "content" }}
+                ref={autoGrow}
+                onInput={(event) => autoGrow(event.currentTarget)}
                 value={bullet.text}
                 onChange={(event) =>
                   onUpdate(
@@ -929,6 +1065,7 @@ function EditableItem({
                   )
                 }
               />
+              {bullet.originalText === bullet.text ? null : (
               <div className="mt-2 flex items-center justify-between">
                 <button
                   className="ghost-button"
@@ -956,6 +1093,7 @@ function EditableItem({
                   </button>
                 )}
               </div>
+              )}
             </div>
           )})}
           {removedForItem.map(([key, removed]) => (

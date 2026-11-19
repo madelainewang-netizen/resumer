@@ -1,3 +1,4 @@
+import { getAIConfig } from "./api/_lib/ai.js";
 import { createServer } from "node:http";
 import { loadEnv } from "vite";
 import { createServer as createViteServer } from "vite";
@@ -50,8 +51,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(5173, "127.0.0.1", () => {
   console.log("Resumer ready at http://127.0.0.1:5173/");
-  if (!process.env.DEEPSEEK_API_KEY) {
-    console.log("AI APIs disabled: add DEEPSEEK_API_KEY to .env.local");
+  if (!getAIConfig().apiKey) {
+    console.log("AI APIs disabled: add KIMI_API_KEY / DEEPSEEK_API_KEY (or AI_API_KEY) to .env.local");
   }
 });
 

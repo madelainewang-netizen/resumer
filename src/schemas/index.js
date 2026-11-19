@@ -5,10 +5,18 @@ const bulletSchema = z.object({
   text: z.string(),
   originalText: z.string().optional(),
   verificationRequired: z.boolean().optional(),
+  tailorReason: z.string().optional(),
 });
 
 export const profileSchema = z.object({
   schemaVersion: z.number().default(2),
+  // 定制结果附带的信息（只有 tailoredProfile 会有）
+  tailorGaps: z
+    .array(z.object({ requirement: z.string(), reason: z.string(), evidenceHint: z.string() }))
+    .optional(),
+  tailorFocus: z.array(z.string()).optional(),
+  tailorOverall: z.string().optional(),
+  tailorToConfirm: z.array(z.string()).optional(),
   source: z
     .object({
       mode: z.enum(["manual", "upload"]),

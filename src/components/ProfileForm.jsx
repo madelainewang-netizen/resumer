@@ -343,16 +343,17 @@ export default function ProfileForm({
             placeholder="上海"
           />
           <TextField
-            label="个人链接"
+            label="个人链接（链接前可写名称，多个用空格隔开）"
             value={profile.basics.links}
             onChange={(value) => updateBasics("links", value)}
-            placeholder="LinkedIn / GitHub / 作品集"
+            placeholder="GitHub github.com/你的账号  作品集 yoursite.me"
+            className="col-span-2"
           />
           <TextField
-            label="其他联系方式"
+            label="其他联系方式（名称 + 内容，多个用 | 隔开）"
             value={profile.basics.extraContact}
             onChange={(value) => updateBasics("extraContact", value)}
-            placeholder="微信 / 个人主页 / 其他"
+            placeholder="小红书 王皮皮 | 微信 abc123"
             className="col-span-2"
           />
           <label className="col-span-2">

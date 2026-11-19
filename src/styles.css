@@ -209,3 +209,33 @@ button:disabled {
     display: none;
   }
 }
+
+/* 简历预览与 PDF 使用同一套字体文件，保证换行和分页一致 */
+@font-face {
+  font-family: "Resume Noto Sans SC";
+  src: url("/fonts/NotoSansSC-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Resume Noto Sans SC";
+  src: url("/fonts/NotoSansSC-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+.resume-paper {
+  font-family: "Resume Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 400;
+  line-break: strict;
+  overflow-wrap: anywhere;
+  -webkit-font-smoothing: antialiased;
+}
+.resume-paper h1,
+.resume-paper h2,
+.resume-paper p {
+  margin: 0;
+}
+/* 浏览器自带的"避免最后一行太短"排版（Chrome 117+、Safari 26+） */
+.resume-paper p {
+  text-wrap: pretty;
+}

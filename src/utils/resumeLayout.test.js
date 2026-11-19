@@ -1,33 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { getResumeLayout, normalizeCompactLevel } from "./resumeLayout";
+import { AUTO_LEVEL, COMPACT_LEVELS, getResumeLayout, normalizeCompactLevel, STANDARD_LEVEL } from "./resumeLayout";
 
-describe("resume layout density", () => {
-  it("makes the minimum-readable preset denser than the compact preset", () => {
-    const compact = getResumeLayout(2);
-    const minimum = getResumeLayout(3);
-
-    expect(minimum.bodySize).toBeLessThan(compact.bodySize);
-    expect(minimum.lineHeight).toBeLessThan(compact.lineHeight);
-    expect(minimum.paddingTop).toBeLessThan(compact.paddingTop);
-    expect(minimum.paddingBottom).toBeLessThan(compact.paddingBottom);
-    expect(minimum.sectionGap).toBeLessThan(compact.sectionGap);
-    expect(minimum.entryGap).toBeLessThan(compact.entryGap);
+describe("resume layout presets", () => {
+  it("uses the author's own resume metrics for the standard preset", () => {
+    const standard = getResumeLayout(STANDARD_LEVEL);
+    expect(standard.bodySize).toBe(9.5);
+    expect(standard.bodySize * standard.lineHeight).toBeCloseTo(15, 0);
+    expect(standard.paddingHorizontal).toBe(36);
   });
 
-  it("scales the portrait and reserved header space with each density", () => {
-    const relaxed = getResumeLayout(0);
-    const minimum = getResumeLayout(3);
-
-    expect(minimum.photoWidth).toBeLessThan(relaxed.photoWidth);
-    expect(minimum.photoHeight).toBeLessThan(relaxed.photoHeight);
-    expect(minimum.photoReserve).toBeLessThan(relaxed.photoReserve);
-    expect(minimum.headerMinHeight).toBeLessThan(relaxed.headerMinHeight);
+  it("orders presets from roomy to tight so auto-fit can search them", () => {
+    const presets = [0, 1, 2, 3, 4].map(getResumeLayout);
+    for (let index = 1; index < presets.length; index += 1) {
+      expect(presets[index].bodySize).toBeLessThanOrEqual(presets[index - 1].bodySize);
+      expect(presets[index].lineHeight).toBeLessThan(presets[index - 1].lineHeight);
+      expect(presets[index].sectionGap).toBeLessThan(presets[index - 1].sectionGap);
+      expect(presets[index].paddingTop).toBeLessThanOrEqual(presets[index - 1].paddingTop);
+    }
   });
 
-  it("normalizes stored density values without falling back to minimum readable", () => {
-    expect(normalizeCompactLevel("0", 2)).toBe(0);
-    expect(normalizeCompactLevel("3", 2)).toBe(3);
-    expect(normalizeCompactLevel("stale", 2)).toBe(2);
-    expect(getResumeLayout("stale")).toEqual(getResumeLayout(0));
+  it("offers auto as the first option and defaults to it", () => {
+    expect(COMPACT_LEVELS[0].value).toBe(AUTO_LEVEL);
+    expect(normalizeCompactLevel(undefined)).toBe(AUTO_LEVEL);
+    expect(normalizeCompactLevel("stale")).toBe(AUTO_LEVEL);
+  });
+
+  it("normalizes stored values", () => {
+    expect(normalizeCompactLevel("0")).toBe(0);
+    expect(normalizeCompactLevel("4")).toBe(4);
+    expect(normalizeCompactLevel("auto")).toBe(AUTO_LEVEL);
+    expect(getResumeLayout(AUTO_LEVEL)).toEqual(getResumeLayout(STANDARD_LEVEL));
   });
 });
