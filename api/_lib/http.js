@@ -27,7 +27,7 @@ export function apiError(res, error) {
 
   const message =
     error?.status === 429
-      ? "请求过于频繁，请稍后重试"
+      ? "AI 服务正忙（同时处理的请求已满），请等上一次生成结束后再试"
       : error?.status === 401
         ? "AI 服务的 API key 无效，请检查 Vercel 里配置的 key（如 KIMI_API_KEY）"
         : error?.status === 402

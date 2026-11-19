@@ -72,7 +72,7 @@ export function getAIClient(config = getAIConfig(), baseURL = config.baseURL) {
     error.status = 503;
     throw error;
   }
-  return new OpenAI({ apiKey: config.apiKey, baseURL, timeout: 240_000 });
+  return new OpenAI({ apiKey: config.apiKey, baseURL, timeout: 240_000, maxRetries: 0 });
 }
 
 /** 所有生成类任务共享的写作规范，避免"AI 腔"。 */
@@ -114,14 +114,23 @@ export async function streamStructuredResponse({
       { role: "user", content: feedback ? `${user}\n\n${feedback}` : user },
     ];
     let output;
-    try {
-      output = await collectStream(client, config, { temperature, messages });
-    } catch (error) {
-      // Kimi 国内站和国际站的 key 不通用：401 时换另一个地址试一次
-      if (error?.status === 401 && config.fallbackBaseURL && client.baseURL !== config.fallbackBaseURL) {
-        client = getAIClient(config, config.fallbackBaseURL);
+    for (let wait = 0; ; wait += 1) {
+      try {
         output = await collectStream(client, config, { temperature, messages });
-      } else {
+        break;
+      } catch (error) {
+        // Kimi 国内站和国际站的 key 不通用：401 时换另一个地址试一次
+        if (error?.status === 401 && config.fallbackBaseURL && client.baseURL !== config.fallbackBaseURL) {
+          client = getAIClient(config, config.fallbackBaseURL);
+          continue;
+        }
+        // 429：账号并发或频率到上限（例如 Kimi 低档账号同时只能跑 1 个请求），排队等待后重试
+        if (error?.status === 429 && wait < RATE_LIMIT_RETRIES) {
+          const seconds = retryAfterSeconds(error, wait);
+          sendEvent(res, { type: "progress", message: `AI 服务正忙，${seconds} 秒后自动重试` });
+          await sleep(seconds * 1000);
+          continue;
+        }
         throw error;
       }
     }
@@ -151,6 +160,17 @@ export async function streamStructuredResponse({
   const error = new Error(`AI 返回的结果无法使用（${lastError?.message || "未知错误"}），请重试`);
   error.status = 502;
   throw error;
+}
+
+const RATE_LIMIT_RETRIES = 12;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 优先用服务端给的等待时间（Retry-After 或报错里的"after N seconds"），否则逐步加长。 */
+function retryAfterSeconds(error, attempt) {
+  const header = Number(error?.headers?.get?.("retry-after") ?? error?.headers?.["retry-after"]);
+  const fromMessage = Number(String(error?.message || "").match(/after (\d+(?:\.\d+)?) seconds?/i)?.[1]);
+  const hinted = Number.isFinite(header) && header > 0 ? header : Number.isFinite(fromMessage) && fromMessage > 0 ? fromMessage : 0;
+  return Math.min(15, Math.max(hinted, 2 + attempt * 2));
 }
 
 async function collectStream(client, config, { temperature, messages }) {
