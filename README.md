@@ -39,12 +39,12 @@ npm run dev
 在 `.env.local` 中配置：
 
 ```bash
-AI_PROVIDER=deepseek   # 或 qwen / moonshot / zhipu
-AI_API_KEY=your_key_here
-# AI_MODEL=deepseek-chat  # 可选，覆盖默认模型
+KIMI_API_KEY=your_key_here     # 或 DEEPSEEK_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY
+# AI_PROVIDER=moonshot         # 可选，强制指定服务
+# AI_REASONING_EFFORT=low      # 可选，kimi-k3 等思考型模型的思考强度
 ```
 
-旧的 `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` 仍然有效。
+配置哪家的 key 就自动用哪家，详见 `.env.example`。Kimi 默认使用 `kimi-k3`。
 
 API key 只在服务端读取，不会进入浏览器构建产物。
 

@@ -1,43 +1,78 @@
 import OpenAI from "openai";
 
 /**
- * 统一的大模型调用层。支持任何 OpenAI 兼容接口（DeepSeek、通义千问、Kimi、智谱等），
+ * 统一的大模型调用层。支持任何 OpenAI 兼容接口（DeepSeek、Kimi、通义千问、智谱等），
  * 通过环境变量切换，不需要改代码：
  *
- *   AI_API_KEY=...            # 也兼容旧的 DEEPSEEK_API_KEY
- *   AI_BASE_URL=...           # 默认 https://api.deepseek.com
- *   AI_MODEL=...              # 默认 deepseek-chat（也兼容 DEEPSEEK_MODEL）
+ *   AI_PROVIDER=moonshot      # 可选：deepseek | moonshot(kimi) | qwen | zhipu；不填时按已配置的 key 自动选
+ *   KIMI_API_KEY / DEEPSEEK_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY   # 各家自己的 key
+ *   AI_API_KEY=...            # 也可以统一用这个
+ *   AI_BASE_URL=... AI_MODEL=...   # 可选，覆盖默认地址和模型
+ *   AI_REASONING_EFFORT=low   # 思考型模型（如 kimi-k3）的思考强度：low | medium | high
  */
 const PRESETS = {
-  deepseek: { baseURL: "https://api.deepseek.com", model: "deepseek-chat", label: "DeepSeek" },
+  deepseek: {
+    label: "DeepSeek",
+    baseURL: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    keys: ["DEEPSEEK_API_KEY"],
+  },
+  moonshot: {
+    label: "Kimi",
+    // 国内站 platform.kimi.com 的 key 用 .cn；国际站 platform.kimi.ai 的 key 用 .ai，两边 key 不通用
+    baseURL: "https://api.moonshot.cn/v1",
+    fallbackBaseURL: "https://api.moonshot.ai/v1",
+    model: "kimi-k3",
+    keys: ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
+    // kimi-k3 温度固定为 1.0、思考模式常开：不能传 temperature，用 reasoning_effort 控制思考强度
+    fixedTemperature: true,
+    reasoning: true,
+  },
   qwen: {
+    label: "通义千问",
     baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     model: "qwen-plus",
-    label: "通义千问",
+    keys: ["DASHSCOPE_API_KEY", "QWEN_API_KEY"],
   },
-  moonshot: { baseURL: "https://api.moonshot.cn/v1", model: "kimi-latest", label: "Kimi" },
-  zhipu: { baseURL: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4-plus", label: "智谱 GLM" },
+  zhipu: {
+    label: "智谱 GLM",
+    baseURL: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4-plus",
+    keys: ["ZHIPU_API_KEY"],
+  },
 };
+const ALIASES = { kimi: "moonshot" };
+// 没有指定 AI_PROVIDER 时，按这个顺序找已经配置了 key 的服务
+const AUTO_ORDER = ["moonshot", "qwen", "zhipu", "deepseek"];
 
 export function getAIConfig(env = process.env) {
-  const provider = (env.AI_PROVIDER || "deepseek").toLowerCase();
-  const preset = PRESETS[provider] || PRESETS.deepseek;
+  const requested = (env.AI_PROVIDER || "").toLowerCase();
+  const provider =
+    ALIASES[requested] ||
+    (PRESETS[requested] ? requested : "") ||
+    AUTO_ORDER.find((name) => PRESETS[name].keys.some((key) => env[key])) ||
+    "deepseek";
+  const preset = PRESETS[provider];
+  const customModel = env.AI_MODEL || (provider === "deepseek" ? env.DEEPSEEK_MODEL : "");
   return {
     provider,
-    label: PRESETS[provider]?.label || provider,
-    apiKey: env.AI_API_KEY || env.DEEPSEEK_API_KEY || "",
+    label: preset.label,
+    apiKey: env.AI_API_KEY || preset.keys.map((key) => env[key]).find(Boolean) || "",
     baseURL: env.AI_BASE_URL || preset.baseURL,
-    model: env.AI_MODEL || env.DEEPSEEK_MODEL || preset.model,
+    fallbackBaseURL: env.AI_BASE_URL ? "" : preset.fallbackBaseURL || "",
+    model: customModel || preset.model,
+    fixedTemperature: Boolean(preset.fixedTemperature),
+    reasoningEffort: preset.reasoning ? env.AI_REASONING_EFFORT || "low" : "",
   };
 }
 
-export function getAIClient(config = getAIConfig()) {
+export function getAIClient(config = getAIConfig(), baseURL = config.baseURL) {
   if (!config.apiKey) {
-    const error = new Error("服务端尚未配置 AI_API_KEY（或 DEEPSEEK_API_KEY）");
+    const error = new Error("服务端尚未配置大模型的 API key（例如 KIMI_API_KEY 或 DEEPSEEK_API_KEY）");
     error.status = 503;
     throw error;
   }
-  return new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL, timeout: 55_000 });
+  return new OpenAI({ apiKey: config.apiKey, baseURL, timeout: 240_000 });
 }
 
 /** 所有生成类任务共享的写作规范，避免"AI 腔"。 */
@@ -53,7 +88,7 @@ export async function streamStructuredResponse({
   res,
   schemaName,
   schema,
-  system,
+  system: systemPrompt,
   input,
   sendEvent,
   transformResult,
@@ -61,23 +96,35 @@ export async function streamStructuredResponse({
   maxRetries = 1,
 }) {
   const config = getAIConfig();
-  const client = getAIClient(config);
+  let client = getAIClient(config);
   const schemaInstructions = `\n\n你必须只返回一个合法 JSON 对象，不使用 Markdown 代码块，不输出任何解释。JSON 必须严格满足以下 ${schemaName} Schema，不能缺少字段，也不能增加字段：\n${JSON.stringify(schema)}`;
-  const messages = [
-    { role: "system", content: `${system}${schemaInstructions}` },
-    { role: "user", content: normalizeInput(input) },
-  ];
+  const system = `${systemPrompt}${schemaInstructions}`;
+  const user = normalizeInput(input);
+  let feedback = "";
 
   let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     if (attempt > 0) {
       sendEvent(res, { type: "progress", message: "结果格式有误，正在自动重试" });
     }
-    const output = await collectStream(client, {
-      model: config.model,
-      temperature,
-      messages,
-    });
+    // 重试时把上一轮的问题写进同一条用户消息里，不回传 assistant 消息
+    // （思考型模型要求回传完整的 reasoning_content，这样做兼容所有服务）
+    const messages = [
+      { role: "system", content: system },
+      { role: "user", content: feedback ? `${user}\n\n${feedback}` : user },
+    ];
+    let output;
+    try {
+      output = await collectStream(client, config, { temperature, messages });
+    } catch (error) {
+      // Kimi 国内站和国际站的 key 不通用：401 时换另一个地址试一次
+      if (error?.status === 401 && config.fallbackBaseURL && client.baseURL !== config.fallbackBaseURL) {
+        client = getAIClient(config, config.fallbackBaseURL);
+        output = await collectStream(client, config, { temperature, messages });
+      } else {
+        throw error;
+      }
+    }
 
     console.info("[ai-response]", {
       provider: config.provider,
@@ -97,14 +144,7 @@ export async function streamStructuredResponse({
       return parsed;
     } catch (error) {
       lastError = error;
-      // 把错误反馈给模型再试一次，比直接报错给用户体验好得多
-      messages.push(
-        { role: "assistant", content: output.slice(0, 20_000) },
-        {
-          role: "user",
-          content: `上面的输出无法使用：${error.message}。请重新输出完整、合法、严格符合 Schema 的 JSON。`,
-        },
-      );
+      feedback = `（你上一次的输出无法使用：${error.message}。请重新输出完整、合法、严格符合 Schema 的 JSON。上一次输出的开头是：${output.slice(0, 1500)}）`;
     }
   }
 
@@ -113,16 +153,19 @@ export async function streamStructuredResponse({
   throw error;
 }
 
-async function collectStream(client, { model, temperature, messages }) {
-  const stream = await client.chat.completions.create({
-    model,
-    temperature,
+async function collectStream(client, config, { temperature, messages }) {
+  const request = {
+    model: config.model,
     stream: true,
     response_format: { type: "json_object" },
     messages,
-  });
+  };
+  if (!config.fixedTemperature) request.temperature = temperature;
+  if (config.reasoningEffort) request.reasoning_effort = config.reasoningEffort;
+  const stream = await client.chat.completions.create(request);
   let output = "";
   for await (const chunk of stream) {
+    // 思考型模型会先输出 reasoning_content，这里只收正式回答
     output += chunk.choices?.[0]?.delta?.content || "";
   }
   return output;

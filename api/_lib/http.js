@@ -29,7 +29,7 @@ export function apiError(res, error) {
     error?.status === 429
       ? "请求过于频繁，请稍后重试"
       : error?.status === 401
-        ? "AI 服务的 API key 无效，请检查 AI_API_KEY"
+        ? "AI 服务的 API key 无效，请检查 Vercel 里配置的 key（如 KIMI_API_KEY）"
         : error?.status === 402
           ? "AI 服务账户余额不足，请充值后重试"
         : error?.status === 403
