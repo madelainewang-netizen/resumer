@@ -1,5 +1,6 @@
 import { forwardRef, useLayoutEffect, useRef, useState } from "react";
 import { buildResumeModel } from "../resume/resumeModel";
+import { fixHtmlOrphans } from "../utils/htmlOrphans";
 import {
   A4,
   AUTO_LEVEL,
@@ -49,7 +50,10 @@ const ResumePaper = forwardRef(function ResumePaper(
         setAutoLevel(fitting === -1 ? STANDARD_LEVEL : fitting);
       }
       const page = pageRef.current;
-      if (page) setContentHeight(Math.max(page.scrollHeight, A4.height));
+      if (page) {
+        fixHtmlOrphans(page, { fontSize: getResumeLayout(level).bodySize, scale });
+        setContentHeight(Math.max(page.scrollHeight, A4.height));
+      }
     };
     measure();
     // 字体加载完成后重新测量，避免用回退字体的高度判断分页
@@ -198,7 +202,7 @@ const PaperPage = forwardRef(function PaperPage({ model, layout, style, probe = 
             {section.title}
           </h2>
           {section.kind === "paragraph" ? (
-            <p>{section.text}</p>
+            <p data-orphan-guard="">{section.text}</p>
           ) : (
             section.entries.map((entry, index) => (
               <div key={entry.id || index} style={{ marginTop: index ? layout.entryGap : 0 }}>
@@ -216,13 +220,13 @@ const PaperPage = forwardRef(function PaperPage({ model, layout, style, probe = 
                     ) : null}
                   </div>
                 ) : null}
-                {entry.secondary ? <p>{entry.secondary}</p> : null}
+                {entry.secondary ? <p data-orphan-guard="">{entry.secondary}</p> : null}
                 {entry.bullets.map((bullet) => (
                   <div key={bullet.id} className="flex" style={{ marginTop: layout.bulletGap }}>
                     <span className="shrink-0" style={{ width: layout.bulletIndent, paddingLeft: layout.bulletDotOffset }}>
                       •
                     </span>
-                    <p className="min-w-0 flex-1">
+                    <p className="min-w-0 flex-1" data-orphan-guard="">
                       {bullet.lead ? <strong style={{ fontWeight: 700 }}>{bullet.lead}</strong> : null}
                       {bullet.text}
                     </p>

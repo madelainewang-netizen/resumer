@@ -26,7 +26,7 @@ async function renderBlob(profile, level, spacing) {
   return pdf(createElement(ResumeDocument, { profile, compactLevel: level, spacing })).toBlob();
 }
 
-async function inspect(blob, level, pdfjs) {
+async function inspect(blob, level, pdfjs, blocks) {
   const layout = getResumeLayout(level);
   const linePitch = layout.bodySize * layout.lineHeight;
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
@@ -36,8 +36,11 @@ async function inspect(blob, level, pdfjs) {
     const page = await doc.getPage(index);
     const content = await page.getTextContent();
     const lines = groupLines(content.items, A4.height);
+    // 只算能对应到正文段落的孤行，避免把抬头联系方式这类短行误判进来
     allOrphans.push(
-      ...findOrphans(lines, { contentRight: A4.width - layout.paddingHorizontal, linePitch }),
+      ...findOrphans(lines, { linePitch }).filter(
+        (orphan) => matchOrphansToBlocks([orphan], blocks).length > 0,
+      ),
     );
     lastLines = lines;
   }
@@ -61,10 +64,11 @@ async function inspect(blob, level, pdfjs) {
  */
 export async function fitResumePdf(profile, requestedLevel, deps = {}) {
   const pdfjs = deps.pdfjs || (await loadPdfjs());
+  const blocks = listTextBlocks(buildResumeModel(profile));
   const render = deps.renderBlob || renderBlob;
   const attempt = async (level, spacing = {}) => {
     const blob = await render(profile, level, spacing);
-    return { level, spacing, blob, ...(await inspect(blob, level, pdfjs)) };
+    return { level, spacing, blob, ...(await inspect(blob, level, pdfjs, blocks)) };
   };
 
   let result;
@@ -90,7 +94,6 @@ export async function fitResumePdf(profile, requestedLevel, deps = {}) {
     result = await attempt(requestedLevel);
   }
 
-  const blocks = listTextBlocks(buildResumeModel(profile));
   for (let round = 0; round < ORPHAN_SPACING_STEPS.length && result.orphans.length; round += 1) {
     const keys = matchOrphansToBlocks(result.orphans, blocks);
     if (!keys.length) break;

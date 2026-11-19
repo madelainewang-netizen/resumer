@@ -35,11 +35,14 @@ export const tailorRewriteJSONSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "action", "text", "reason", "verificationRequired"],
+        required: ["id", "action", "title", "situation", "act", "result", "reason", "verificationRequired"],
         properties: {
           id: { type: "string" },
           action: { type: "string", enum: ["rewrite", "keep"] },
-          text: { type: "string" },
+          title: { type: "string" },
+          situation: { type: "string" },
+          act: { type: "string" },
+          result: { type: "string" },
           reason: { type: "string" },
           verificationRequired: { type: "boolean" },
         },
@@ -104,7 +107,7 @@ export function mergeTailorRewrite(profile, rewrite) {
   const mapBullets = (bullets = []) =>
     bullets.map((bullet) => {
       const next = byId.get(bullet.id);
-      const proposed = next ? cleanResumeText(next.text) : bullet.text;
+      const proposed = next ? stripFirstPerson(cleanResumeText(next.text)) : bullet.text;
       // 模型说保留、或者只动了空格标点：一律视为未修改，原文原样保留
       const unchanged = !next || next.action === "keep" || isSameWording(bullet.text, proposed);
       const text = unchanged ? bullet.text : proposed;
@@ -162,7 +165,7 @@ export function bulletBody(text) {
   return match ? match[1] : value;
 }
 
-const COLLOQUIAL = /(^|[，；。：\s])我们?|帮忙|搞定?|弄好?|一下|然后|挺|比较好/;
+const COLLOQUIAL = /帮忙|搞定?|弄好?|一下|然后|挺|比较好/;
 
 /** 标记为 rewrite、但正文和原文一样（只换了小标题）的条目。 */
 export function findTitleOnlyRewrites(input, rewrite) {
@@ -179,7 +182,7 @@ export function findWeakRewrites(input, rewrite) {
     if (bullet.action !== "rewrite" || !originals.has(bullet.id)) return [];
     const original = originals.get(bullet.id);
     if (isSameWording(bulletBody(original), bulletBody(bullet.text))) return [{ ...bullet, issue: "titleOnly" }];
-    if (COLLOQUIAL.test(bullet.text) && !COLLOQUIAL.test(original)) return [{ ...bullet, issue: "colloquial" }];
+    if (COLLOQUIAL.test(bullet.text)) return [{ ...bullet, issue: "colloquial" }];
     return [];
   });
 }
@@ -190,3 +193,44 @@ export const bodyRedoJSONSchema = {
   required: ["bullets"],
   properties: { bullets: tailorRewriteJSONSchema.properties.bullets },
 };
+
+const TRAILING_PUNCT = /[，,；;。.、：:\s]+$/;
+const LEADING_PUNCT = /^[，,；;。.、：:\s]+/;
+
+/**
+ * 去掉第一人称。简历书面体不写主语："由我人工复核" → "人工复核"，"我们团队" → "团队"。
+ */
+export function stripFirstPerson(text) {
+  return String(text || "")
+    .replace(/由我们?/g, "")
+    .replace(/我们的?团队/g, "团队")
+    .replace(/我们/g, "团队")
+    .replace(/(^|[，；。：、\s])我(?=[\u4e00-\u9fff])/g, "$1")
+    .replace(/(?<![自])我(?=[\u4e00-\u9fff])/g, "")
+    .replace(/，，|；；/g, (match) => match[0]);
+}
+
+const part = (value) => stripFirstPerson(cleanResumeText(String(value || ""))).replace(LEADING_PUNCT, "").replace(TRAILING_PUNCT, "");
+
+/**
+ * 把模型给出的 STAR 三段拼成一条简历 bullet，结构由程序保证：
+ * 小标题：场景/问题，判断与关键动作；结果/产出
+ */
+export function composeBullet({ title, situation, act, result }) {
+  const lead = part(title);
+  const body = [part(situation), part(act)].filter(Boolean).join("，");
+  const tail = part(result);
+  const text = [body, tail].filter(Boolean).join("；");
+  return lead ? `${lead}：${text}` : text;
+}
+
+/** 模型输出 → 带 text 的 bullet：keep 用原文，rewrite 按 STAR 拼装。 */
+export function materializeBullets(bullets = [], originals = new Map()) {
+  return bullets.map((bullet) => ({
+    ...bullet,
+    text:
+      bullet.action === "keep" && originals.has(bullet.id)
+        ? originals.get(bullet.id)
+        : composeBullet(bullet),
+  }));
+}

@@ -149,3 +149,33 @@ describe("colloquial rewrite check", () => {
     ).toEqual([]);
   });
 });
+
+import { composeBullet, materializeBullets, stripFirstPerson } from "./tailor";
+
+describe("STAR assembly", () => {
+  it("assembles title, situation, action and result in a fixed order", () => {
+    expect(
+      composeBullet({
+        title: "流程拆解与 AI 提效",
+        situation: "Clipping Report 需逐条查原帖，单份约 2 小时。",
+        act: "拆解重复步骤后用 Trae 搭建素材处理 Agent，保留人工复核",
+        result: "单份降至约 30 分钟，节省 75%",
+      }),
+    ).toBe("流程拆解与 AI 提效：Clipping Report 需逐条查原帖，单份约 2 小时，拆解重复步骤后用 Trae 搭建素材处理 Agent，保留人工复核；单份降至约 30 分钟，节省 75%");
+  });
+
+  it("skips empty parts cleanly", () => {
+    expect(composeBullet({ title: "选题复盘", situation: "", act: "复盘 33 篇历史稿件", result: "" })).toBe("选题复盘：复盘 33 篇历史稿件");
+  });
+
+  it("removes first-person pronouns", () => {
+    expect(stripFirstPerson("下载结果由我人工复核后再使用")).toBe("下载结果人工复核后再使用");
+    expect(stripFirstPerson("我搭建了素材库，我们团队负责执行")).toBe("搭建了素材库，团队负责执行");
+    expect(stripFirstPerson("准备自我介绍")).toBe("准备自我介绍");
+  });
+
+  it("keeps the original text for keep actions", () => {
+    const [bullet] = materializeBullets([{ id: "a", action: "keep", title: "", situation: "", act: "", result: "" }], new Map([["a", "原文"]]));
+    expect(bullet.text).toBe("原文");
+  });
+});

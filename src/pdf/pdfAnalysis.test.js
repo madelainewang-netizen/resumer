@@ -19,13 +19,13 @@ describe("pdf layout checks", () => {
   });
 
   it("flags a paragraph whose last line holds only a couple of characters", () => {
-    const orphans = findOrphans(lines, { contentRight: 559, linePitch: 15 });
+    const orphans = findOrphans(lines, { linePitch: 15 });
     expect(orphans).toHaveLength(1);
     expect(orphans[0].text).toBe("内容");
   });
 
   it("does not flag short single-line bullets", () => {
-    const orphans = findOrphans(lines, { contentRight: 559, linePitch: 15 });
+    const orphans = findOrphans(lines, { linePitch: 15 });
     expect(orphans.some((orphan) => orphan.text.includes("第二条"))).toBe(false);
   });
 

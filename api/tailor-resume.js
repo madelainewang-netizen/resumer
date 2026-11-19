@@ -6,6 +6,7 @@ import {
   bodyRedoJSONSchema,
   buildTailorInput,
   findWeakRewrites,
+  materializeBullets,
   mergeTailorRewrite,
   tailorRewriteJSONSchema,
 } from "./_lib/tailor.js";
@@ -26,8 +27,17 @@ ${RESUME_SOP}
 
 ${JD_TAILORING_SKILL}
 
+每条 bullet 按 STAR 拆成字段返回，程序会按"title：situation，act；result"的固定顺序拼成一条：
+- title：能力关键词小标题，4–8 个字，不带冒号。
+- situation：S/T，场景或要解决的问题，半句，不超过 25 字；原文没有交代背景时返回空字符串。
+- act：A，你的判断与关键动作，这是主体；动词开头，不写"我""我们"等主语，可用分号连接两个动作。
+- result：R，结果、规模或产出物；原文没有结果时返回空字符串，不要编。
+- 三个字段都用简历书面体，不以标点结尾；事实只能来自原文。
+例：原文"整理 60+ 个 UTM 来源并编写 SQL 归为 6 类入口，复盘评友节连续 31 天的曝光、CTR 及评价提交表现，评估各入口对用户参与的贡献"
+→ title "渠道转化分析"；situation "评友节流量入口分散、无法横向比较"（仅当原文有此背景时）；act "用 SQL 将 60+ 个 UTM 来源归为 6 类入口，复盘 31 天曝光、CTR 与评价提交表现"；result "评估各入口对用户参与的贡献"
+
 补充要求：
-- 每条 bullet 给出 action：rewrite 或 keep；keep 时 text 原样返回原文。
+- 每条 bullet 给出 action：rewrite 或 keep；keep 时 title/situation/act/result 都返回空字符串，程序会保留原文。
 - 只调整空格、标点但侧重点没变的，不算改写，应该用 keep。
 - reason 用一句话，不超过 40 字，例："小标题改为'数据分析'，SQL 归因提到句首，对应 JD 的数据驱动要求"。
 - 正文一般 40–80 个汉字，信息少的条目宁可短，不要注水。
@@ -79,6 +89,11 @@ export default async function handler(req, res) {
 <candidate_resume>\n${JSON.stringify(input)}\n</candidate_resume>`,
     });
     const rewrite = events[0];
+    const originalsById = new Map(
+      input.experiences.flatMap((group) => group.bullets.map((bullet) => [bullet.id, bullet.text])),
+    );
+    // STAR 三段由程序拼成一条，保证结构固定
+    rewrite.bullets = materializeBullets(rewrite.bullets, originalsById);
 
     // 自动检查：只换了小标题、或写成口语的条目，退回让模型重写一次
     const titleOnly = findWeakRewrites(input, rewrite);
@@ -96,7 +111,7 @@ export default async function handler(req, res) {
           system: SYSTEM,
           input: `<jd_analysis>\n${JSON.stringify(analysis)}\n</jd_analysis>
 <focus>${JSON.stringify(rewrite.focus || [])}</focus>
-<task>下面这些条目上一轮的改写不合格，issue 说明了原因：titleOnly = 只换了小标题、正文和原文一样；colloquial = 写成了口语。请按《岗位定制改写 Skill》第三步和《简历修改 SOP》第一、二部分重写：正文调整语序、把与 focus 对应的事实放到开头、换用目标岗位的说法，使用简历书面体和 STAR 逻辑；事实不能增加。只返回这些条目，action 一律为 rewrite。</task>
+<task>按 title/situation/act/result 四个字段返回。下面这些条目上一轮的改写不合格，issue 说明了原因：titleOnly = 只换了小标题、正文和原文一样；colloquial = 写成了口语。请按《岗位定制改写 Skill》第三步和《简历修改 SOP》第一、二部分重写：正文调整语序、把与 focus 对应的事实放到开头、换用目标岗位的说法，使用简历书面体和 STAR 逻辑；事实不能增加。只返回这些条目，action 一律为 rewrite。</task>
 <bullets>${JSON.stringify(
             titleOnly.map((bullet) => ({
               id: bullet.id,
@@ -106,7 +121,9 @@ export default async function handler(req, res) {
             })),
           )}</bullets>`,
         });
-        const redone = new Map((redoEvents[0]?.bullets || []).map((bullet) => [bullet.id, bullet]));
+        const redone = new Map(
+          materializeBullets(redoEvents[0]?.bullets || [], originalsById).map((bullet) => [bullet.id, bullet]),
+        );
         rewrite.bullets = rewrite.bullets.map((bullet) => {
           const next = redone.get(bullet.id);
           return next ? { ...next, reason: next.reason || bullet.reason } : bullet;

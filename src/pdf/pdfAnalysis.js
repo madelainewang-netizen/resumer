@@ -37,18 +37,20 @@ export function groupLines(items, pageHeight) {
  * 找孤行：上一行是同一段落（行距一致、左缘对齐或是带圆点的首行）且已排满，
  * 而这一行只有不超过 3 个可见字符。
  */
-export function findOrphans(lines, { contentRight, linePitch }) {
+export function findOrphans(lines, { linePitch }) {
   const orphans = [];
   for (let index = 1; index < lines.length; index += 1) {
     const line = lines[index];
     const previous = lines[index - 1];
+    // 带圆点的是新一条的首行，不是孤行
+    if (/^\s*•/.test(line.text)) continue;
     const sameParagraph =
       Math.abs(line.top - previous.top - linePitch) < 1.5 &&
       line.x0 >= previous.x0 - 1 &&
       line.x0 <= previous.x0 + 14;
-    const previousFull = previous.x1 > contentRight - (contentRight - line.x0) * 0.12;
     const visible = (line.text.match(VISIBLE) || []).length;
-    if (sameParagraph && previousFull && visible <= ORPHAN_MAX_CHARS) {
+    // 不再要求上一行排满：上一行因为英文长单词提前换行时，剩下的一两个字同样难看
+    if (sameParagraph && visible <= ORPHAN_MAX_CHARS) {
       orphans.push({ text: line.text.trim(), previousText: previous.text.replace(/^•\s*/, "").trim() });
     }
   }
