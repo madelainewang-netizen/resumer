@@ -179,3 +179,22 @@ describe("STAR assembly", () => {
     expect(bullet.text).toBe("原文");
   });
 });
+
+describe("entry removal advice and 本人", () => {
+  it("passes remove suggestions through", () => {
+    const merged = mergeTailorRewrite(sampleProfile, {
+      summary: "", bullets: [], gaps: [], toConfirm: [],
+      entries: [{ entryId: "exp_1", decision: "remove", reason: "与岗位关联弱" }, { entryId: "exp_2", decision: "keep", reason: "" }],
+    });
+    expect(merged.tailorRemovals).toEqual([{ entryId: "exp_1", reason: "与岗位关联弱" }]);
+  });
+
+  it("removes 由本人 / 本人 as well", () => {
+    expect(stripFirstPerson("下载完成部分由本人逐张人工复核后再投入使用")).toBe("下载完成部分逐张人工复核后再投入使用");
+    expect(stripFirstPerson("本人负责数据整理")).toBe("负责数据整理");
+  });
+
+  it("gives every experience group its entry id", () => {
+    expect(buildTailorInput(sampleProfile).experiences[0].entryId).toBe(sampleProfile.experience[0].id);
+  });
+});

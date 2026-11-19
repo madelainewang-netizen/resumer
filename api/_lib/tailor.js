@@ -11,8 +11,21 @@ import { cleanResumeText } from "../../src/utils/cleanText.js";
 export const tailorRewriteJSONSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["focus", "overall", "summary", "bullets", "gaps", "toConfirm"],
+  required: ["focus", "overall", "summary", "bullets", "gaps", "toConfirm", "entries"],
   properties: {
+    entries: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["entryId", "decision", "reason"],
+        properties: {
+          entryId: { type: "string" },
+          decision: { type: "string", enum: ["keep", "remove"] },
+          reason: { type: "string" },
+        },
+      },
+    },
     toConfirm: { type: "array", items: { type: "string" } },
     focus: { type: "array", items: { type: "string" } },
     overall: { type: "string" },
@@ -56,6 +69,7 @@ export function buildTailorInput(profile) {
   const groups = [];
   for (const item of profile.experience || []) {
     groups.push({
+      entryId: item.id,
       type: "工作/实习",
       heading: [item.company, item.role, [item.startDate, item.endDate].filter(Boolean).join("–")]
         .filter(Boolean)
@@ -65,6 +79,7 @@ export function buildTailorInput(profile) {
   }
   for (const item of profile.projects || []) {
     groups.push({
+      entryId: item.id,
       type: "项目",
       heading: [item.name, item.role, item.stack].filter(Boolean).join(" | "),
       bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: cleanResumeText(b.text) })),
@@ -73,6 +88,7 @@ export function buildTailorInput(profile) {
   for (const section of profile.customSections || []) {
     for (const item of section.items || []) {
       groups.push({
+        entryId: item.id,
         type: section.title || "其他",
         heading: [item.title, item.subtitle].filter(Boolean).join(" | "),
         bullets: (item.bullets || []).filter((b) => b.text?.trim()).map((b) => ({ id: b.id, text: cleanResumeText(b.text) })),
@@ -137,6 +153,9 @@ export function mergeTailorRewrite(profile, rewrite) {
     tailorGaps: gaps,
     tailorFocus: (rewrite?.focus || []).map((item) => String(item).trim()).filter(Boolean).slice(0, 5),
     tailorOverall: cleanResumeText(String(rewrite?.overall || "")),
+    tailorRemovals: (rewrite?.entries || [])
+      .filter((entry) => entry?.decision === "remove" && String(entry.entryId || "").trim())
+      .map((entry) => ({ entryId: entry.entryId, reason: cleanResumeText(String(entry.reason || "")) })),
     tailorToConfirm: (rewrite?.toConfirm || []).map((item) => cleanResumeText(String(item))).filter(Boolean).slice(0, 8),
     basics: {
       ...profile.basics,
@@ -202,7 +221,8 @@ const LEADING_PUNCT = /^[，,；;。.、：:\s]+/;
  */
 export function stripFirstPerson(text) {
   return String(text || "")
-    .replace(/由我们?/g, "")
+    .replace(/由我们?|由本人|由笔者/g, "")
+    .replace(/本人(?=[\u4e00-\u9fff])/g, "")
     .replace(/我们的?团队/g, "团队")
     .replace(/我们/g, "团队")
     .replace(/(^|[，；。：、\s])我(?=[\u4e00-\u9fff])/g, "$1")

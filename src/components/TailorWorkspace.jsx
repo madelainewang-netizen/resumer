@@ -37,6 +37,7 @@ import { LoadingButton, SectionHeader, StatusPill } from "./ui";
 import EvidenceCoach from "./EvidenceCoach";
 import { addEvidenceToProfile, mergeAddedEvidence } from "../utils/evidence";
 import { evaluateRequirementEvidence } from "../utils/matchScore";
+import { entryLabel, findEntry, removeEntry, restoreEntry } from "../utils/entries";
 
 export default function TailorWorkspace({
   profile,
@@ -466,6 +467,22 @@ export default function TailorWorkspace({
                   </div>
                 ) : null}
 
+                {isTailoredCurrent ? (
+                  <EntryPanel
+                    tailoredProfile={tailoredProfile}
+                    onRemove={(entryId) => setTailoredProfile((current) => removeEntry(current, entryId))}
+                    onRestore={(entryId) => setTailoredProfile((current) => restoreEntry(current, entryId))}
+                    onAddNew={() =>
+                      setCoachTarget({
+                        requirement: "补充一段简历里还没有的新经历",
+                        reason: "",
+                        evidenceHint: "实习、项目、比赛、校园或志愿经历都可以；先问在哪里、什么角色、什么时间，再问做了什么、结果如何",
+                        isNew: true,
+                      })
+                    }
+                  />
+                ) : null}
+
                 {isTailoredCurrent && changedBullets.length === 0 ? (
                   <p className="mb-4 rounded-xl bg-neutral-50 p-3.5 text-[11px] leading-5 text-neutral-500">
                     现有经历已经写得贴合这个岗位，AI 没有需要改的地方。想让简历更有竞争力，就要补上下面这些岗位看重、但简历里还没写到的经历。
@@ -624,6 +641,57 @@ function autoGrow(node) {
   if (!node) return;
   node.style.height = "auto";
   node.style.height = `${node.scrollHeight + 2}px`;
+}
+
+function EntryPanel({ tailoredProfile, onRemove, onRestore, onAddNew }) {
+  const removed = tailoredProfile?.tailorRemoved || [];
+  const suggestions = (tailoredProfile?.tailorRemovals || [])
+    .map((advice) => ({ ...advice, found: findEntry(tailoredProfile, advice.entryId) }))
+    .filter((advice) => advice.found);
+  return (
+    <div className="mb-4 rounded-xl border border-neutral-200 p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold">经历取舍</p>
+        <button className="ghost-button" onClick={onAddNew}>
+          <MessageSquarePlus size={13} />
+          添加一段新经历
+        </button>
+      </div>
+      {suggestions.length ? (
+        <div className="mt-2 space-y-2">
+          {suggestions.map((advice) => (
+            <div key={advice.entryId} className="flex items-start justify-between gap-3 rounded-lg bg-neutral-50 p-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-neutral-800">建议删掉：{entryLabel(advice.found.item)}</p>
+                {advice.reason ? <p className="mt-1 text-[11px] leading-5 text-neutral-500">{advice.reason}</p> : null}
+              </div>
+              <button className="secondary-button shrink-0" onClick={() => onRemove(advice.entryId)}>
+                从这版移除
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1.5 text-[11px] leading-5 text-neutral-500">
+          AI 认为现有经历都和这个岗位相关，没有建议删除的。
+        </p>
+      )}
+      {removed.length ? (
+        <div className="mt-3 border-t border-neutral-100 pt-2.5">
+          <p className="text-[11px] text-neutral-400">这版简历里已移除（基础资料里仍保留）：</p>
+          {removed.map((record) => (
+            <div key={record.item.id} className="mt-1.5 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-neutral-500 line-through">{entryLabel(record.item)}</span>
+              <button className="ghost-button" onClick={() => onRestore(record.item.id)}>
+                <RotateCcw size={12} />
+                恢复
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function GapPanel({ gaps, onAdd }) {

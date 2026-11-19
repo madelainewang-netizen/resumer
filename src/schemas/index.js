@@ -17,6 +17,11 @@ export const profileSchema = z.object({
   tailorFocus: z.array(z.string()).optional(),
   tailorOverall: z.string().optional(),
   tailorToConfirm: z.array(z.string()).optional(),
+  tailorRemovals: z.array(z.object({ entryId: z.string(), reason: z.string() })).optional(),
+  // 用户在这版简历里移除的经历（可以恢复）
+  tailorRemoved: z
+    .array(z.object({ section: z.string(), sectionId: z.string().optional(), index: z.number(), item: z.any() }))
+    .optional(),
   source: z
     .object({
       mode: z.enum(["manual", "upload"]),
