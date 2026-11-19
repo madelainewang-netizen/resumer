@@ -162,15 +162,26 @@ export function bulletBody(text) {
   return match ? match[1] : value;
 }
 
+const COLLOQUIAL = /(^|[，；。：\s])我们?|帮忙|搞定?|弄好?|一下|然后|挺|比较好/;
+
 /** 标记为 rewrite、但正文和原文一样（只换了小标题）的条目。 */
 export function findTitleOnlyRewrites(input, rewrite) {
+  return findWeakRewrites(input, rewrite).filter((bullet) => bullet.issue === "titleOnly");
+}
+
+/**
+ * 需要退回重写的改写：只换了小标题（titleOnly），或者写成了口语（colloquial）。
+ * 原文本来就有的口语词不算新问题。
+ */
+export function findWeakRewrites(input, rewrite) {
   const originals = new Map(input.experiences.flatMap((group) => group.bullets.map((bullet) => [bullet.id, bullet.text])));
-  return (rewrite?.bullets || []).filter(
-    (bullet) =>
-      bullet.action === "rewrite" &&
-      originals.has(bullet.id) &&
-      isSameWording(bulletBody(originals.get(bullet.id)), bulletBody(bullet.text)),
-  );
+  return (rewrite?.bullets || []).flatMap((bullet) => {
+    if (bullet.action !== "rewrite" || !originals.has(bullet.id)) return [];
+    const original = originals.get(bullet.id);
+    if (isSameWording(bulletBody(original), bulletBody(bullet.text))) return [{ ...bullet, issue: "titleOnly" }];
+    if (COLLOQUIAL.test(bullet.text) && !COLLOQUIAL.test(original)) return [{ ...bullet, issue: "colloquial" }];
+    return [];
+  });
 }
 
 export const bodyRedoJSONSchema = {

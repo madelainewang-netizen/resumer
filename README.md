@@ -85,3 +85,15 @@ npm run build
 PDF 使用 [Noto Sans SC](https://github.com/notofonts/noto-cjk)，字体遵循 SIL Open Font License。
 
 `public/fonts/` 中是从 Noto Sans SC 可变字体导出的 Regular / Bold 静态字重（保留常用汉字、拉丁字符与标点）。react-pdf 不支持可变字体，必须使用静态字重，否则整份 PDF 会以 Thin 字重输出、粗体失效。重新生成：`python3 scripts/build-fonts.py <NotoSansSC-VF.ttf>`。
+
+## 改写规则（Skill）
+
+AI 改写时加载的规则在 `api/_lib/skills/`：
+
+- `resumeSop.js`：简历修改 SOP——简历书面体、STAR 结构、动词与归因、删减与自查。
+- `jdTailoring.js`：岗位定制改写——选岗位能力 → 给每条经历找直接或可迁移的对口能力 → 改正文与小标题。
+
+方法论部分参考并转述了以下开源项目（未照搬原文）：
+
+- [StoneLL1/resume-builder](https://github.com/StoneLL1/resume-builder)（MIT）中的《Resume Writing Guide for LLMs》
+- [youngbeauty/GodSU](https://github.com/youngbeauty/GodSU) 中的 resume-crafting

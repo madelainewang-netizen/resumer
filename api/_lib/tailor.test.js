@@ -130,3 +130,22 @@ describe("to-confirm list", () => {
     expect(merged.tailorToConfirm).toEqual(["资源库是你独立搭建的吗？"]);
   });
 });
+
+import { findWeakRewrites } from "./tailor";
+
+describe("colloquial rewrite check", () => {
+  const input = { experiences: [{ bullets: [{ id: "a", text: "选题复盘：复盘 33 篇历史稿件的收录情况" }] }] };
+  it("flags rewrites that slip into spoken Chinese", () => {
+    const flagged = findWeakRewrites(input, {
+      bullets: [{ id: "a", action: "rewrite", text: "选题复盘：我帮团队把 33 篇稿件整理了一下，然后调整方向" }],
+    });
+    expect(flagged).toEqual([expect.objectContaining({ id: "a", issue: "colloquial" })]);
+  });
+  it("accepts resume-style rewrites", () => {
+    expect(
+      findWeakRewrites(input, {
+        bullets: [{ id: "a", action: "rewrite", text: "内容数据复盘：复盘 33 篇历史稿件收录情况，识别高收录选题并调整投稿方向" }],
+      }),
+    ).toEqual([]);
+  });
+});

@@ -5,7 +5,7 @@ import { JD_TAILORING_SKILL } from "./_lib/skills/jdTailoring.js";
 import {
   bodyRedoJSONSchema,
   buildTailorInput,
-  findTitleOnlyRewrites,
+  findWeakRewrites,
   mergeTailorRewrite,
   tailorRewriteJSONSchema,
 } from "./_lib/tailor.js";
@@ -80,10 +80,10 @@ export default async function handler(req, res) {
     });
     const rewrite = events[0];
 
-    // 自动检查：标记为改写、但正文没动（只换了小标题）的条目，退回让模型重写正文一次
-    const titleOnly = findTitleOnlyRewrites(input, rewrite);
+    // 自动检查：只换了小标题、或写成口语的条目，退回让模型重写一次
+    const titleOnly = findWeakRewrites(input, rewrite);
     if (titleOnly.length) {
-      sendEvent(res, { type: "progress", message: `有 ${titleOnly.length} 条只改了小标题，正在重写正文` });
+      sendEvent(res, { type: "progress", message: `有 ${titleOnly.length} 条改写不合格，正在重写` });
       const originals = new Map(input.experiences.flatMap((group) => group.bullets.map((bullet) => [bullet.id, bullet.text])));
       const redoEvents = [];
       try {
@@ -96,13 +96,21 @@ export default async function handler(req, res) {
           system: SYSTEM,
           input: `<jd_analysis>\n${JSON.stringify(analysis)}\n</jd_analysis>
 <focus>${JSON.stringify(rewrite.focus || [])}</focus>
-<task>下面这些条目上一轮只换了小标题，正文和原文一样，不合格。请按《岗位定制改写 Skill》第三步重写正文：至少调整语序、把与 focus 对应的事实放到正文开头，并换用目标岗位的说法；事实不能增加。小标题可以沿用上一轮的。只返回这些条目，action 一律为 rewrite。</task>
+<task>下面这些条目上一轮的改写不合格，issue 说明了原因：titleOnly = 只换了小标题、正文和原文一样；colloquial = 写成了口语。请按《岗位定制改写 Skill》第三步和《简历修改 SOP》第一、二部分重写：正文调整语序、把与 focus 对应的事实放到开头、换用目标岗位的说法，使用简历书面体和 STAR 逻辑；事实不能增加。只返回这些条目，action 一律为 rewrite。</task>
 <bullets>${JSON.stringify(
-            titleOnly.map((bullet) => ({ id: bullet.id, original: originals.get(bullet.id), previousAttempt: bullet.text })),
+            titleOnly.map((bullet) => ({
+              id: bullet.id,
+              issue: bullet.issue,
+              original: originals.get(bullet.id),
+              previousAttempt: bullet.text,
+            })),
           )}</bullets>`,
         });
         const redone = new Map((redoEvents[0]?.bullets || []).map((bullet) => [bullet.id, bullet]));
-        rewrite.bullets = rewrite.bullets.map((bullet) => redone.get(bullet.id) || bullet);
+        rewrite.bullets = rewrite.bullets.map((bullet) => {
+          const next = redone.get(bullet.id);
+          return next ? { ...next, reason: next.reason || bullet.reason } : bullet;
+        });
       } catch (error) {
         console.warn("[tailor-body-redo-failed]", error.message);
       }
